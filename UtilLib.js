@@ -105,57 +105,87 @@
 			return str.join("&");
 		},
 		
-		// 실제 요청 처리 함수 (internal use)
-		_request: function(method, url, data, successCallback, errorCallback) {
+		/**
+		 * @param options : { useLoader: true/false, beforeSend: fn, complete: fn }
+		 */
+		_request: function(method, url, data, contentType, successCallback, errorCallback, options) {
 			var xhr = new XMLHttpRequest();
+			var payload = null;
+			
+			// 옵션 기본값 처리
+			options = options || {};
+			var useLoader = (options.useLoader !== false); // 기본값 true
 
-			// GET 방식이고 데이터가 있다면 URL에 파라미터 추가
+			// [1] beforeSend: 요청 전 실행 (버튼 비활성화 등)
+			if (typeof options.beforeSend === "function") {
+				options.beforeSend();
+			}
+
+			// 로딩 화면 (옵션에서 false로 끄지 않았다면 실행)
+			if (useLoader && bonfireG.Loading) bonfireG.Loading.show();
+
+			// GET 파라미터 처리
 			if (method === "GET" && data) {
 				var queryString = this._serialize(data);
 				url += (url.indexOf("?") === -1 ? "?" : "&") + queryString;
 			}
 
 			xhr.open(method, url, true);
-			xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
 			xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 
+			// POST Content-Type 처리
+			if (method === "POST") {
+				if (contentType === "FORM") {
+					xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+					payload = this._serialize(data);
+				} else {
+					xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
+					payload = JSON.stringify(data);
+				}
+			}
+
 			xhr.onreadystatechange = function() {
-				if (xhr.readyState === 4) {
+				if (xhr.readyState === 4) { // 통신 완료 시
+					
+					// 로딩 끄기
+					if (useLoader && bonfireG.Loading) bonfireG.Loading.hide();
+
+					// 성공/실패 핸들링
 					if (xhr.status >= 200 && xhr.status < 300) {
-						// 성공 시
 						if (typeof successCallback === "function") {
 							var response = xhr.responseText;
-							try {
-								response = JSON.parse(response);
-							} catch (e) {
-								// JSON 파싱 실패 시 원본 텍스트 유지
-							}
+							try { response = JSON.parse(response); } catch (e) {}
 							successCallback(response);
 						}
 					} else {
-						// 실패 시
 						if (typeof errorCallback === "function") {
 							errorCallback(xhr.status, xhr.statusText);
 						} else {
 							console.error("AJAX Error: " + xhr.status);
 						}
 					}
+
+					// [2] complete: 성공이든 실패든 무조건 마지막에 실행
+					if (typeof options.complete === "function") {
+						options.complete();
+					}
 				}
 			};
 
-			// POST 방식일 때 데이터 JSON 문자열로 변환하여 전송
-			var payload = (method === "POST" && data) ? JSON.stringify(data) : null;
 			xhr.send(payload);
 		},
 
-		// GET 메서드
-		get: function(url, data, successCallback, errorCallback) {
-			this._request("GET", url, data, successCallback, errorCallback);
+		// 함수들 파라미터 끝에 options 추가
+		get: function(url, data, successCallback, errorCallback, options) {
+			this._request("GET", url, data, null, successCallback, errorCallback, options);
 		},
 
-		// POST 메서드
-		post: function(url, data, successCallback, errorCallback) {
-			this._request("POST", url, data, successCallback, errorCallback);
+		post: function(url, data, successCallback, errorCallback, options) {
+			this._request("POST", url, data, "JSON", successCallback, errorCallback, options);
+		},
+
+		postForm: function(url, data, successCallback, errorCallback, options) {
+			this._request("POST", url, data, "FORM", successCallback, errorCallback, options);
 		}
 	};
 	
@@ -173,6 +203,51 @@
 		},
 		back: function() {
 			window.history.back();
+		}
+	};
+	
+	bonfireG.Loading = {
+		_id: "bonfire-loading-overlay",
+		
+		// CSS를 JS에서 직접 주입 (외부 CSS 파일 필요 없음)
+		_injectCSS: function() {
+			if (document.getElementById("bonfire-loading-style")) return;
+			
+			var css = "" +
+				".bonfire-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: none; justify-content: center; align-items: center; }" +
+				".bonfire-spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }" +
+				"@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
+			
+			var style = document.createElement('style');
+			style.id = "bonfire-loading-style";
+			style.type = 'text/css';
+			if (style.styleSheet) { style.styleSheet.cssText = css; } // IE
+			else { style.appendChild(document.createTextNode(css)); } // Chrome, FF
+			document.getElementsByTagName('head')[0].appendChild(style);
+		},
+
+		// 로딩 HTML 생성
+		_createHTML: function() {
+			if (document.getElementById(this._id)) return;
+			
+			var overlay = document.createElement('div');
+			overlay.id = this._id;
+			overlay.className = "bonfire-overlay";
+			overlay.innerHTML = '<div class="bonfire-spinner"></div>';
+			document.body.appendChild(overlay);
+		},
+
+		// 로딩 보이기
+		show: function() {
+			this._injectCSS();
+			this._createHTML();
+			document.getElementById(this._id).style.display = "flex";
+		},
+
+		// 로딩 숨기기
+		hide: function() {
+			var el = document.getElementById(this._id);
+			if (el) el.style.display = "none";
 		}
 	};
 
