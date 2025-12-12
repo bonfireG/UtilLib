@@ -188,7 +188,9 @@
 			this._request("POST", url, data, "FORM", successCallback, errorCallback, options);
 		}
 	};
-	
+	/**
+     * 6. Page: 페이지 이동 및 제어
+     */
 	bonfireG.Page = {
 		move: function(url) {
 			if (bonfireG.Validator.isEmpty(url)) return;
@@ -205,7 +207,9 @@
 			window.history.back();
 		}
 	};
-	
+	/**
+	 * 7. Loading: 로딩 오버레이 (CSS 포함)
+	 */
 	bonfireG.Loading = {
 		_id: "bonfire-loading-overlay",
 		
@@ -250,8 +254,59 @@
 			if (el) el.style.display = "none";
 		}
 	};
+	
+	/**
+	 * 8. Date: 날짜 관련 처리
+	 */
+	bonfireG.Date = {
+		getDateTime: function(dt) {
+			// 입력값이 없으면 현재 시간, 있으면 해당 시간으로 Date 객체 생성
+			var date = (dt) ? new Date(dt) : new Date();
+			
+			// 유효하지 않은 날짜인 경우 빈 문자열 반환 (안전 장치)
+			if (isNaN(date.getTime())) return "";
 
+			var year = date.getFullYear().toString();
+
+			var month = date.getMonth() + 1;
+			month = month < 10 ? '0' + month.toString() : month.toString();
+
+			var day = date.getDate();
+			day = day < 10 ? '0' + day.toString() : day.toString();
+
+			var hour = date.getHours();
+			hour = hour < 10 ? '0' + hour.toString() : hour.toString();
+
+			var minutes = date.getMinutes(); // 오타 수정: minites -> minutes
+			minutes = minutes < 10 ? '0' + minutes.toString() : minutes.toString();
+
+			var seconds = date.getSeconds();
+			seconds = seconds < 10 ? '0' + seconds.toString() : seconds.toString();
+
+			return year + "-" + month + "-" + day + " " + hour + ":" + minutes + ":" + seconds;
+		},
+		
+		/**
+		 * 날짜만 "YYYY-MM-DD" 포맷으로 변환 (보너스 기능)
+		 */
+		getToday: function(dt) {
+			var fullStr = this.getDateTime(dt);
+			return fullStr.substring(0, 10); // 앞의 10자리만 잘라서 반환
+		}
+	};
 	// 전역 객체에 등록
 	global.bonfireG = bonfireG;
 
 })(window);
+
+/*
+bonfireG.Ajax.postForm(
+	url, 
+	data, 
+	function(result){
+		console.log(result);
+	}, function(error){
+		console.log(error);
+	}
+);
+*/
