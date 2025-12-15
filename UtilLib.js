@@ -123,11 +123,25 @@
 			xhr.open(method, url, true);
 			xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 
+			// CSRF 토큰 처리
+			var csrfToken = document.querySelector("meta[name='_csrf']");
+			var csrfHeader = document.querySelector("meta[name='_csrf_header']");
+			if (csrfToken && csrfHeader) {
+				xhr.setRequestHeader(csrfHeader.getAttribute("content"), csrfToken.getAttribute("content"));
+			}
+
+			// POST 방식 Content-Type 및 Payload 처리
 			if (method === "POST") {
 				if (contentType === "FORM") {
 					xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
 					payload = this._serialize(data);
-				} else {
+				} 
+				else if (contentType === "UPLOAD") {
+					// [NEW] 파일 업로드 (FormData 전송)
+					// 중요: Content-Type 헤더를 설정하지 않음 (브라우저가 boundary 자동 설정)
+					payload = data; 
+				} 
+				else {
 					xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
 					payload = JSON.stringify(data);
 				}
@@ -162,13 +176,16 @@
 		get: function(url, data, successCallback, errorCallback, options) {
 			this._request("GET", url, data, null, successCallback, errorCallback, options);
 		},
-
 		post: function(url, data, successCallback, errorCallback, options) {
 			this._request("POST", url, data, "JSON", successCallback, errorCallback, options);
 		},
-
 		postForm: function(url, data, successCallback, errorCallback, options) {
 			this._request("POST", url, data, "FORM", successCallback, errorCallback, options);
+		},
+		
+		//var formData = new FormData();를 사용해야함.
+		upload: function(url, formData, successCallback, errorCallback, options) {
+			this._request("POST", url, formData, "UPLOAD", successCallback, errorCallback, options);
 		}
 	};
 	/**
