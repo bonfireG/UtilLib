@@ -180,6 +180,30 @@
 			if (bonfireG.Validator.isEmpty(url)) return;
 			window.location.href = url;
 		},
+		submit: function(url, params) {
+			if (bonfireG.Validator.isEmpty(url)) return;
+
+			var form = document.createElement("form");
+			form.setAttribute("method", "post");
+			form.setAttribute("action", url);
+			
+			// 파라미터가 있으면 hidden input으로 생성
+			if (params && typeof params === 'object') {
+				for (var key in params) {
+					if (params.hasOwnProperty(key)) {
+						var hiddenField = document.createElement("input");
+						hiddenField.setAttribute("type", "hidden");
+						hiddenField.setAttribute("name", key);
+						hiddenField.setAttribute("value", params[key]);
+						form.appendChild(hiddenField);
+					}
+				}
+			}
+
+			document.body.appendChild(form);
+			form.submit();
+			document.body.removeChild(form); // 전송 후 폼 삭제
+		},
 		open: function(url) {
 			if (bonfireG.Validator.isEmpty(url)) return;
 			window.open(url, '_blank');
