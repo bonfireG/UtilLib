@@ -105,25 +105,17 @@
 		_request: function(method, url, data, contentType, successCallback, errorCallback, options) {
 			var xhr = new XMLHttpRequest();
 			var payload = null;
-			
 			options = options || {};
 			var useLoader = (options.useLoader !== false);
-
-			if (typeof options.beforeSend === "function") {
-				options.beforeSend();
-			}
-
+			var isAsync = (options.async !== false);
+			if (typeof options.beforeSend === "function") { options.beforeSend(); }
 			if (useLoader && bonfireG.Loading) bonfireG.Loading.show();
-
 			if (method === "GET" && data) {
 				var queryString = this._serialize(data);
 				url += (url.indexOf("?") === -1 ? "?" : "&") + queryString;
 			}
-
-			xhr.open(method, url, true);
+			xhr.open(method, url, isAsync);
 			xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-
-			// CSRF 토큰 처리
 			var csrfToken = document.querySelector("meta[name='_csrf']");
 			var csrfHeader = document.querySelector("meta[name='_csrf_header']");
 			if (csrfToken && csrfHeader) {
@@ -146,7 +138,6 @@
 				if (xhr.readyState === 4) {
 					
 					if (useLoader && bonfireG.Loading) bonfireG.Loading.hide();
-
 					if (xhr.status >= 200 && xhr.status < 300) {
 						if (typeof successCallback === "function") {
 							var response = xhr.responseText;
@@ -160,7 +151,6 @@
 							console.error("AJAX Error: " + xhr.status);
 						}
 					}
-
 					if (typeof options.complete === "function") {
 						options.complete();
 					}
