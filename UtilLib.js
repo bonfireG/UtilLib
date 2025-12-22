@@ -428,6 +428,12 @@
 			return obj;
 		}
 	};
+	
+	window.addEventListener('pageshow', function(event) {
+		if (event.persisted || (bonfireG.Loading && document.getElementById("bonfire-loading-overlay") && document.getElementById("bonfire-loading-overlay").style.display === "flex")) {
+			if (bonfireG.Loading) bonfireG.Loading.hide();
+		}
+	});
 	global.bonfireG = bonfireG;
 
 })(window);
