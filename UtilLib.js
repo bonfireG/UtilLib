@@ -137,22 +137,32 @@
 			xhr.onreadystatechange = function() {
 				if (xhr.readyState === 4) {
 					
-					if (useLoader && bonfireG.Loading) bonfireG.Loading.hide();
-					if (xhr.status >= 200 && xhr.status < 300) {
-						if (typeof successCallback === "function") {
-							var response = xhr.responseText;
-							try { response = JSON.parse(response); } catch (e) {}
-							successCallback(response);
-						}
-					} else {
-						if (typeof errorCallback === "function") {
-							errorCallback(xhr.status, xhr.statusText);
+					try {
+						if (xhr.status >= 200 && xhr.status < 300) {
+							if (typeof successCallback === "function") {
+								var response = xhr.responseText;
+								try { response = JSON.parse(response); } catch (e) {}
+								
+								// 1. 여기서 데이터를 가지고 화면을 그립니다 (시간 소요)
+								successCallback(response);
+							}
 						} else {
-							console.error("AJAX Error: " + xhr.status);
+							if (typeof errorCallback === "function") {
+								errorCallback(xhr.status, xhr.statusText);
+							} else {
+								console.error("AJAX Error: " + xhr.status);
+							}
 						}
-					}
-					if (typeof options.complete === "function") {
-						options.complete();
+					} catch (e) {
+						console.error("Callback Error:", e);
+					} finally {
+						if (useLoader && bonfireG.Loading) {
+							setTimeout(function() {
+								bonfireG.Loading.hide();
+							}, 50); 
+						}
+						
+						if (typeof options.complete === "function") options.complete();
 					}
 				}
 			};
