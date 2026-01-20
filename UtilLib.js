@@ -8,7 +8,6 @@
 
 	/**
 	 * 1. Core: 기본 설정 및 로그
-	 * @memberof bonfireG
 	 */
 	bonfireG.Core = {
 		debug: true,
@@ -21,7 +20,6 @@
 
 	/**
 	 * 2. Validator: 유효성 검사
-	 * @memberof bonfireG
 	 */
 	bonfireG.Validator = {
 		isEmpty: function(val) {
@@ -37,7 +35,6 @@
 
 	/**
 	 * 3. Formatter: 데이터 포맷 변환
-	 * @memberof bonfireG
 	 */
 	bonfireG.Formatter = {
 		comma: function(val) {
@@ -52,14 +49,11 @@
 			var str = String(val).replace(/[^0-9]/g, "");
 			if (str.length === 11) {
 				return str.replace(/(\d{3})(\d{4})(\d{4})/, "$1-$2-$3");
-			} 
-			else if (str.length === 8) {
+			} else if (str.length === 8) {
 				return str.replace(/(\d{4})(\d{4})/, "$1-$2");
-			} 
-			else if (str.indexOf("02") === 0) {
+			} else if (str.indexOf("02") === 0) {
 				return str.replace(/(\d{2})(\d{3,4})(\d{4})/, "$1-$2-$3");
-			} 
-			else {
+			} else {
 				return str.replace(/(\d{3})(\d{3,4})(\d{4})/, "$1-$2-$3");
 			}
 		}
@@ -67,7 +61,6 @@
 
 	/**
 	 * 4. UI: UI 이벤트 관련
-	 * @memberof bonfireG
 	 */
 	bonfireG.UI = {
 		addEnterEvent: function(inputId, buttonId) {
@@ -80,12 +73,21 @@
 					}
 				});
 			}
+		},
+		// [NEW] 이미지 새로고침 (캐시 방지)
+		refreshImage: function(id, url) {
+			var img = document.getElementById(id);
+			if (!img) return;
+			var targetUrl = url ? url : img.src.split('?')[0];
+			img.src = targetUrl + "?t=" + new Date().getTime();
 		}
 	};
 
 	/**
-	 * 5. Ajax: 비동기 통신
-	 * @memberof bonfireG
+	 * 5. Ajax: 비동기 통신 (최종 개선판)
+	 * - upload 지원
+	 * - async, useLoader, autoHide 옵션 지원
+	 * - requestAnimationFrame으로 렌더링 후 로딩바 종료
 	 */
 	bonfireG.Ajax = {
 		_serialize: function(obj) {
@@ -99,34 +101,43 @@
 		},
 		
 		/**
-		 * @memberof bonfireG.Ajax
-		 * @param options { useLoader: boolean, beforeSend: function, complete: function }
+		 * @param options { useLoader: boolean, async: boolean, autoHide: boolean, beforeSend: function, complete: function }
 		 */
 		_request: function(method, url, data, contentType, successCallback, errorCallback, options) {
 			var xhr = new XMLHttpRequest();
 			var payload = null;
+			
 			options = options || {};
-			var useLoader = (options.useLoader !== false);
-			var isAsync = (options.async !== false);
-			if (typeof options.beforeSend === "function") { options.beforeSend(); }
+			var useLoader = (options.useLoader !== false); // 기본값 true
+			var isAsync = (options.async !== false);       // 기본값 true
+			var autoHide = (options.autoHide !== false);   // 기본값 true
+
+			if (typeof options.beforeSend === "function") options.beforeSend();
+			
+			// 로딩바 표시
 			if (useLoader && bonfireG.Loading) bonfireG.Loading.show();
+
 			if (method === "GET" && data) {
 				var queryString = this._serialize(data);
 				url += (url.indexOf("?") === -1 ? "?" : "&") + queryString;
 			}
+
 			xhr.open(method, url, isAsync);
 			xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+
 			var csrfToken = document.querySelector("meta[name='_csrf']");
 			var csrfHeader = document.querySelector("meta[name='_csrf_header']");
 			if (csrfToken && csrfHeader) {
 				xhr.setRequestHeader(csrfHeader.getAttribute("content"), csrfToken.getAttribute("content"));
 			}
+
 			if (method === "POST") {
 				if (contentType === "FORM") {
 					xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
 					payload = this._serialize(data);
 				} 
 				else if (contentType === "UPLOAD") {
+					// 파일 업로드 시 Content-Type 헤더 생략 (브라우저 자동 설정)
 					payload = data; 
 				} 
 				else {
@@ -134,16 +145,15 @@
 					payload = JSON.stringify(data);
 				}
 			}
+
 			xhr.onreadystatechange = function() {
 				if (xhr.readyState === 4) {
-					
 					try {
 						if (xhr.status >= 200 && xhr.status < 300) {
 							if (typeof successCallback === "function") {
 								var response = xhr.responseText;
 								try { response = JSON.parse(response); } catch (e) {}
-								
-								// 1. 여기서 데이터를 가지고 화면을 그립니다 (시간 소요)
+								// 성공 콜백 실행 (화면 그리기 등)
 								successCallback(response);
 							}
 						} else {
@@ -156,10 +166,13 @@
 					} catch (e) {
 						console.error("Callback Error:", e);
 					} finally {
-						if (useLoader && bonfireG.Loading) {
-							setTimeout(function() {
-								bonfireG.Loading.hide();
-							}, 50); 
+						// 화면 렌더링 완료 감지 후 로딩바 종료 (requestAnimationFrame 사용)
+						if (useLoader && bonfireG.Loading && autoHide) {
+							requestAnimationFrame(function() {
+								requestAnimationFrame(function() {
+									bonfireG.Loading.hide();
+								});
+							});
 						}
 						
 						if (typeof options.complete === "function") options.complete();
@@ -168,6 +181,7 @@
 			};
 			xhr.send(payload);
 		},
+
 		get: function(url, data, successCallback, errorCallback, options) {
 			this._request("GET", url, data, null, successCallback, errorCallback, options);
 		},
@@ -177,23 +191,27 @@
 		postForm: function(url, data, successCallback, errorCallback, options) {
 			this._request("POST", url, data, "FORM", successCallback, errorCallback, options);
 		},
-		//var formData = new FormData();를 사용해야함.
+		// 파일 업로드용 (formData 필수)
 		upload: function(url, formData, successCallback, errorCallback, options) {
 			this._request("POST", url, formData, "UPLOAD", successCallback, errorCallback, options);
 		}
 	};
+
 	/**
      * 6. Page: 페이지 이동 및 제어
-	 * @memberof bonfireG
+     * - 이동 시 로딩바 표시 기능 추가됨
      */
 	bonfireG.Page = {
 		move: function(url) {
 			if (bonfireG.Validator.isEmpty(url)) return;
+			if (bonfireG.Loading) bonfireG.Loading.show(); // 페이지 이동 시 로딩바
 			window.location.href = url;
 		},
+		// 동적 폼 생성 및 POST 전송
 		submit: function(url, params) {
 			if (bonfireG.Validator.isEmpty(url)) return;
-			if (bonfireG.Loading) bonfireG.Loading.show();
+			if (bonfireG.Loading) bonfireG.Loading.show(); // submit 시 로딩바
+			
 			var form = document.createElement("form");
 			form.setAttribute("method", "post");
 			form.setAttribute("action", url);
@@ -226,9 +244,9 @@
 			window.history.back();
 		}
 	};
+
 	/**
 	 * 7. Loading: 로딩 오버레이
-	 * @memberof bonfireG
 	 */
 	bonfireG.Loading = {
 		_id: "bonfire-loading-overlay",
@@ -243,8 +261,8 @@
 			var style = document.createElement('style');
 			style.id = "bonfire-loading-style";
 			style.type = 'text/css';
-			if (style.styleSheet) { style.styleSheet.cssText = css; } // IE
-			else { style.appendChild(document.createTextNode(css)); } // Chrome, FF
+			if (style.styleSheet) { style.styleSheet.cssText = css; }
+			else { style.appendChild(document.createTextNode(css)); }
 			document.getElementsByTagName('head')[0].appendChild(style);
 		},
 		
@@ -272,7 +290,6 @@
 	
 	/**
 	 * 8. Date: 날짜 관련 처리
-	 * @memberof bonfireG
 	 */
 	bonfireG.Date = {
 		getDateTime: function(dt) {
@@ -286,7 +303,7 @@
 			day = day < 10 ? '0' + day.toString() : day.toString();
 			var hour = date.getHours();
 			hour = hour < 10 ? '0' + hour.toString() : hour.toString();
-			var minutes = date.getMinutes(); // 오타 수정: minites -> minutes
+			var minutes = date.getMinutes();
 			minutes = minutes < 10 ? '0' + minutes.toString() : minutes.toString();
 			var seconds = date.getSeconds();
 			seconds = seconds < 10 ? '0' + seconds.toString() : seconds.toString();
@@ -300,7 +317,6 @@
 	
 	/**
 	 * 9. Storage: 쿠키 및 로컬스토리지 제어
-	 * @memberof bonfireG
 	 */
 	bonfireG.Storage = {
 		setCookie: function(name, value, days) {
@@ -339,7 +355,6 @@
 	
 	/**
 	 * 10. File: 파일 관련 유틸
-	 * @memberof bonfireG
 	 */
 	bonfireG.File = {
 		formatSize: function(bytes) {
@@ -360,7 +375,6 @@
 	
 	/**
 	 * 11. Util: 기타 유틸리티 (클립보드, 팝업)
-	 * @memberof bonfireG
 	 */
 	bonfireG.Util = {
 		copyToClipboard: function(text) {
@@ -387,7 +401,6 @@
 	
 	/**
 	 * 12. Form: Input 제어 및 폼 데이터 처리
-	 * @memberof bonfireG
 	 */
 	bonfireG.Form = {
 		onlyNumber: function(el) {
@@ -439,23 +452,15 @@
 		}
 	};
 	
+	/**
+	 * [필수] 뒤로가기(BFCache) 시 로딩바가 화면에 남아있는 문제 해결
+	 */
 	window.addEventListener('pageshow', function(event) {
 		if (event.persisted || (bonfireG.Loading && document.getElementById("bonfire-loading-overlay") && document.getElementById("bonfire-loading-overlay").style.display === "flex")) {
 			if (bonfireG.Loading) bonfireG.Loading.hide();
 		}
 	});
+
 	global.bonfireG = bonfireG;
 
 })(window);
-
-/*
-bonfireG.Ajax.postForm(
-	url, 
-	data, 
-	function(result){
-		console.log(result);
-	}, function(error){
-		console.log(error);
-	}
-);
-*/
