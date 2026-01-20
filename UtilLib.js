@@ -276,12 +276,34 @@
 			document.body.appendChild(overlay);
 		},
 
-		show: function() {
+		show: function(mode) {
 			this._injectCSS();
 			this._createHTML();
-			document.getElementById(this._id).style.display = "flex";
+			var el = document.getElementById(this._id);
+			
+			if (mode === 'block') {
+				// 강제로 Block + Transform 방식 사용 (CSS 수정 필요 없이 JS로 제어)
+				el.style.display = "block";
+				var spinner = el.querySelector('.bonfire-spinner');
+				if(spinner) {
+					spinner.style.position = "absolute";
+					spinner.style.top = "50%";
+					spinner.style.left = "50%";
+					spinner.style.transform = "translate(-50%, -50%)";
+				}
+			} else {
+				// 기본 Flex 방식
+				el.style.display = "flex";
+				// 기존 스타일 초기화
+				var spinner = el.querySelector('.bonfire-spinner');
+				if(spinner) {
+					spinner.style.position = "";
+					spinner.style.top = "";
+					spinner.style.left = "";
+					spinner.style.transform = "";
+				}
+			}
 		},
-
 		hide: function() {
 			var el = document.getElementById(this._id);
 			if (el) el.style.display = "none";
