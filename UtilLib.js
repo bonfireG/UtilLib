@@ -350,6 +350,15 @@
 			}
 			document.cookie = name + "=" + (value || "") + expires + "; path=/";
 		},
+		setCookieMin: function(name, value, minutes) {
+			var expires = "";
+			if (minutes) {
+				var date = new Date();
+				date.setTime(date.getTime() + (minutes * 60 * 1000));
+				expires = "; expires=" + date.toUTCString();
+			}
+			document.cookie = name + "=" + (value || "") + expires + "; path=/";
+		},
 		getCookie: function(name) {
 			var nameEQ = name + "=";
 			var ca = document.cookie.split(';');
