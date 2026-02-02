@@ -484,6 +484,50 @@
 	};
 	
 	/**
+	 * 13. Session: 세션 만료 타이머 (쿠키 시간과 동기화)
+	 */
+	bonfireG.Session = {
+		timer: null,
+		limit: 30 * 60 * 1000,
+		redirectUrl: null,
+		cookieName: "SESSION_ALIVE",
+		cookieValue: "Y",
+		eventAdded: false,
+		start: function(minutes, url, cName, cValue) {
+			if (minutes) this.limit = minutes * 60 * 1000;
+			if (url) this.redirectUrl = url;
+			if (cName) this.cookieName = cName;
+			if (cValue) this.cookieValue = cValue;
+
+			this.reset();
+
+			if (!this.eventAdded) {
+				var self = this;
+				document.addEventListener('click', function() { self.reset(); });
+				document.addEventListener('keydown', function() { self.reset(); });
+				this.eventAdded = true;
+			}
+		},
+
+		reset: function() {
+			if (this.timer) clearTimeout(this.timer);
+			var min = this.limit / 60000;
+			bonfireG.Storage.setCookieMin(this.cookieName, this.cookieValue, min);
+
+			var self = this;
+			this.timer = setTimeout(function() {
+				alert("세션이 만료되어 자동 로그아웃 됩니다.");
+				if (self.redirectUrl) {
+					if (window.top) window.top.location.href = self.redirectUrl;
+					else window.location.href = self.redirectUrl;
+				} else {
+					window.location.reload();
+				}
+			}, this.limit);
+		}
+	};
+	
+	/**
 	 * [필수] 뒤로가기(BFCache) 시 로딩바가 화면에 남아있는 문제 해결
 	 */
 	window.addEventListener('pageshow', function(event) {
