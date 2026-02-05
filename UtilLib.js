@@ -494,36 +494,68 @@
 		cookieValue: "Y",
 		eventAdded: false,
 		start: function(minutes, url, cName, cValue) {
-			if (minutes) this.limit = minutes * 60 * 1000;
+			if (minutes) this.limitMin = minutes;
 			if (url) this.redirectUrl = url;
 			if (cName) this.cookieName = cName;
 			if (cValue) this.cookieValue = cValue;
 
-			this.reset();
+			this.extend();
+			if (this.watcher) clearInterval(this.watcher);
+			
+			var self = this;
+			this.watcher = setInterval(function() {
+				var check = bonfireG.Storage.getCookie(self.cookieName);
+				
+				if (check == null) {
+					clearInterval(self.watcher);
+					
+					self.showExpiredPopup();
+					
+				}
+			}, 1000); 
 
 			if (!this.eventAdded) {
-				var self = this;
-				document.addEventListener('click', function() { self.reset(); });
-				document.addEventListener('keydown', function() { self.reset(); });
+				document.addEventListener('click', function() { self.extend(); });
+				document.addEventListener('keydown', function() { self.extend(); });
 				this.eventAdded = true;
 			}
 		},
-
-		reset: function() {
-			if (this.timer) clearTimeout(this.timer);
-			var min = this.limit / 60000;
-			bonfireG.Storage.setCookieMin(this.cookieName, this.cookieValue, min);
-
+		extend: function() {
+			bonfireG.Storage.setCookieMin(this.cookieName, this.cookieValue, this.limitMin);
+		},
+		
+		showExpiredPopup: function() {
 			var self = this;
-			this.timer = setTimeout(function() {
-				alert("세션이 만료되어 자동 로그아웃 됩니다.");
-				if (self.redirectUrl) {
+			
+			var overlay = document.createElement("div");
+			overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; justify-content:center; align-items:center;";
+			
+			var box = document.createElement("div");
+			box.style.cssText = "background:#fff; padding:30px; border-radius:8px; text-align:center; box-shadow:0 4px 6px rgba(0,0,0,0.1); min-width:300px;";
+			
+			var msg = document.createElement("p");
+			msg.innerText = "세션 유효 시간이 만료되었습니다.\n자동 로그아웃 됩니다.";
+			msg.style.cssText = "margin-bottom:20px; font-size:16px; color:#333; line-height:1.5;";
+			
+			var btn = document.createElement("button");
+			btn.innerText = "확인";
+			btn.style.cssText = "padding:10px 20px; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:14px;";
+			
+			btn.onclick = function() {
+				if (self.redirectUrl && self.redirectUrl !== 'javascript:void(0)') {
 					if (window.top) window.top.location.href = self.redirectUrl;
 					else window.location.href = self.redirectUrl;
-				} else {
+				} else if (self.redirectUrl !== 'javascript:void(0)') {
 					window.location.reload();
+				} else {
+					document.body.removeChild(overlay);
 				}
-			}, this.limit);
+			};
+
+			box.appendChild(msg);
+			box.appendChild(btn);
+			overlay.appendChild(box);
+			document.body.appendChild(overlay);
 		}
 	};
 	
