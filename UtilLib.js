@@ -493,8 +493,7 @@
 		cookieName: "SESSION_ALIVE",
 		cookieValue: "Y",
 		eventAdded: false,
-		watcher: null
-		
+		watcher: null,
 		start: function(minutes, url, cName, cValue) {
 			if (minutes) this.limitMin = minutes;
 			if (url) this.redirectUrl = url;
