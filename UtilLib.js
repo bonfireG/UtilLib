@@ -493,6 +493,8 @@
 		cookieName: "SESSION_ALIVE",
 		cookieValue: "Y",
 		eventAdded: false,
+		watcher: null
+		
 		start: function(minutes, url, cName, cValue) {
 			if (minutes) this.limitMin = minutes;
 			if (url) this.redirectUrl = url;
@@ -556,7 +558,16 @@
 			box.appendChild(btn);
 			overlay.appendChild(box);
 			document.body.appendChild(overlay);
-		}
+		},
+		
+		stop: function() {
+			if (this.watcher) {
+				clearInterval(this.watcher);
+				this.watcher = null;
+			}
+			bonfireG.Storage.deleteCookie(this.cookieName);
+			bonfireG.Core.log("Session stopped and cookie removed.");
+		},
 	};
 	
 	/**
