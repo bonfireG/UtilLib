@@ -1,6 +1,3 @@
-/*
-구본한 개인 코드
-*/
 (function(global) {
 	"use strict";
 
@@ -253,23 +250,12 @@
 	 */
 	bonfireG.Loading = {
 		_id: "bonfire-loading-overlay",
-		_textId: "bonfire-loading-msg",
-		_timer: null,
-		_messages: [
-			"질문을 분석하고 있어요",
-			"최적의 답변을 찾는 중입니다",
-			"내용을 정리하고 있어요",
-			"답변을 작성하는 중이에요",
-			"조금만 기다려주세요",
-			"곧 답변해드릴게요!"
-		],
 		
 		_injectCSS: function() {
 			if (document.getElementById("bonfire-loading-style")) return;
 			var css = "" +
-				".bonfire-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 9999; display: none; align-items: center; justify-content: center; flex-direction: column; }" +
-				".bonfire-spinner { display: block; width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px auto; }" +
-				".bonfire-loading-text { display: block; color: #ffffff; font-size: 16px; font-weight: bold; text-align: center; line-height: 1.5; min-height: 24px; white-space: pre-wrap; width: 100%; }" +
+				".bonfire-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: none; justify-content: center; align-items: center; }" +
+				".bonfire-spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }" +
 				"@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
 			
 			var style = document.createElement('style');
@@ -286,19 +272,17 @@
 			var overlay = document.createElement('div');
 			overlay.id = this._id;
 			overlay.className = "bonfire-overlay";
-			overlay.innerHTML = '<div class="bonfire-spinner"></div><div id="' + this._textId + '" class="bonfire-loading-text"></div>';
+			overlay.innerHTML = '<div class="bonfire-spinner"></div>';
 			document.body.appendChild(overlay);
 		},
 
-		show: function(mode, showMessage) {
+		show: function(mode) {
 			this._injectCSS();
 			this._createHTML();
 			var el = document.getElementById(this._id);
-
-			var txtEl = document.getElementById(this._textId);
-			showMessage = (showMessage === true);
 			
 			if (mode === 'block') {
+				// 강제로 Block + Transform 방식 사용 (CSS 수정 필요 없이 JS로 제어)
 				el.style.display = "block";
 				var spinner = el.querySelector('.bonfire-spinner');
 				if(spinner) {
@@ -307,54 +291,16 @@
 					spinner.style.left = "50%";
 					spinner.style.transform = "translate(-50%, -50%)";
 				}
-
-				if(txtEl) {
-					txtEl.style.position = "absolute";
-					txtEl.style.top = "calc(50% + 50px)"; 
-					txtEl.style.left = "50%";
-					txtEl.style.transform = "translate(-50%, -50%)";
-					txtEl.style.width = "100%";
-				}
 			} else {
+				// 기본 Flex 방식
 				el.style.display = "flex";
+				// 기존 스타일 초기화
 				var spinner = el.querySelector('.bonfire-spinner');
 				if(spinner) {
 					spinner.style.position = "";
 					spinner.style.top = "";
 					spinner.style.left = "";
 					spinner.style.transform = "";
-				}
-
-				if(txtEl) {
-					txtEl.style.position = "";
-					txtEl.style.top = "";
-					txtEl.style.left = "";
-					txtEl.style.transform = "";
-					txtEl.style.width = "";
-				}
-			}
-
-
-			if (showMessage) {
-				var self = this;
-				var idx = 0;
-				var loopStartIndex = 3;
-				txtEl.innerText = self._messages[idx];
-				
-				if (this._timer) clearInterval(this._timer);
-
-				this._timer = setInterval(function() {
-					idx++;
-					if (idx >= self._messages.length) {
-						idx = loopStartIndex;
-					}
-					txtEl.innerText = self._messages[idx];
-				}, 3000);
-			} else {
-				txtEl.innerText = "";
-				if (this._timer) {
-					clearInterval(this._timer);
-					this._timer = null;
 				}
 			}
 		},
