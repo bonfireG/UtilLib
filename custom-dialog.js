@@ -4,9 +4,11 @@
  * 파일명: custom-dialog.js
  * 
  * - 외부 라이브러리 및 별도 CSS 파일 불필요 (단일 JS 파일로 완벽 동작)
+ * - [케이스 1] 제목 없이 본문 메시지만 있는 경우 지원
+ * - [케이스 2] 제목 + 본문 메시지가 모두 있는 경우 지원
+ * - 0이면 아이콘 숨김, 1이면 경고 아이콘 표시 등 숫자 옵션 지원
  * - Promise(async/await) 및 콜백 완벽 지원
  * - 모바일/태블릿/데스크탑 100% 반응형 지원
- * - 인라인 SVG 고화질 아이콘 내장 (warning, error, success, info, question)
  * - ESC / Enter 키보드 접근성 지원 & 배경 스크롤 방지
  * ============================================================================
  */
@@ -25,7 +27,7 @@
 			'  left: 0;' +
 			'  width: 100vw;' +
 			'  height: 100vh;' +
-			'  background-color: rgba(15, 23, 42, 0.5);' +
+			'  background-color: rgba(15, 23, 42, 0.45);' +
 			'  backdrop-filter: blur(4px);' +
 			'  -webkit-backdrop-filter: blur(4px);' +
 			'  display: flex;' +
@@ -48,9 +50,9 @@
 			'  background: #ffffff;' +
 			'  width: 100%;' +
 			'  max-width: 380px;' +
-			'  border-radius: 18px;' +
-			'  box-shadow: 0 20px 35px -5px rgba(0, 0, 0, 0.18), 0 10px 15px -5px rgba(0, 0, 0, 0.06);' +
-			'  padding: 26px 22px 20px;' +
+			'  border-radius: 20px;' +
+			'  box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.16), 0 10px 15px -5px rgba(0, 0, 0, 0.05);' +
+			'  padding: 30px 24px 22px;' +
 			'  box-sizing: border-box;' +
 			'  text-align: center;' +
 			'  transform: scale(0.92) translateY(12px);' +
@@ -61,42 +63,55 @@
 			'.custom-dlg-overlay.active .custom-dlg-box {' +
 			'  transform: scale(1) translateY(0);' +
 			'}' +
-			'/* 아이콘 영역 */' +
+			'/* 아이콘 영역 (원형 배지) */' +
 			'.custom-dlg-icon-wrap {' +
-			'  width: 54px;' +
-			'  height: 54px;' +
-			'  margin: 0 auto 16px;' +
+			'  width: 60px;' +
+			'  height: 60px;' +
+			'  margin: 0 auto 18px;' +
 			'  border-radius: 50%;' +
 			'  display: flex;' +
 			'  align-items: center;' +
 			'  justify-content: center;' +
 			'}' +
 			'.custom-dlg-icon-wrap svg {' +
-			'  width: 28px;' +
-			'  height: 28px;' +
+			'  width: 30px;' +
+			'  height: 30px;' +
 			'  display: block;' +
 			'}' +
-			'.custom-dlg-icon-wrap.type-warning { background: #FEF3C7; color: #D97706; }' +
-			'.custom-dlg-icon-wrap.type-error { background: #FEE2E2; color: #DC2626; }' +
-			'.custom-dlg-icon-wrap.type-success { background: #D1FAE5; color: #059669; }' +
-			'.custom-dlg-icon-wrap.type-info { background: #EEF2FF; color: #4F46E5; }' +
-			'.custom-dlg-icon-wrap.type-question { background: #E0E7FF; color: #4338CA; }' +
-			'/* 타이틀 & 메시지 */' +
+			'.custom-dlg-icon-wrap.type-warning { background: #FFF4D9; color: #EAB308; }' +
+			'.custom-dlg-icon-wrap.type-error   { background: #FEE2E2; color: #EF4444; }' +
+			'.custom-dlg-icon-wrap.type-success { background: #D1FAE5; color: #10B981; }' +
+			'.custom-dlg-icon-wrap.type-info    { background: #EEF2FF; color: #6366F1; }' +
+			'.custom-dlg-icon-wrap.type-question{ background: #EDE9FE; color: #7C3AED; }' +
+			'/* 제목 (Title) */' +
 			'.custom-dlg-title {' +
-			'  font-size: 1.15rem;' +
+			'  font-size: 1.2rem;' +
 			'  font-weight: 700;' +
 			'  color: #1e293b;' +
-			'  margin: 0 0 8px 0;' +
+			'  margin: 0 0 10px 0;' +
 			'  word-break: keep-all;' +
 			'  line-height: 1.4;' +
 			'}' +
+			'/* 본문 메시지 (Message) */' +
 			'.custom-dlg-message {' +
-			'  font-size: 0.95rem;' +
+			'  font-size: 0.96rem;' +
 			'  color: #64748b;' +
 			'  line-height: 1.55;' +
-			'  margin: 0 0 22px 0;' +
+			'  margin: 0 0 24px 0;' +
 			'  word-break: keep-all;' +
 			'  white-space: pre-wrap;' +
+			'}' +
+			'/* [제목이 없는 경우] 본문 메시지를 메인 텍스트로 강조 */' +
+			'.custom-dlg-box.has-no-title .custom-dlg-message {' +
+			'  font-size: 1.05rem;' +
+			'  font-weight: 600;' +
+			'  color: #1e293b;' +
+			'  margin-top: 4px;' +
+			'  margin-bottom: 26px;' +
+			'}' +
+			'/* [아이콘이 없는 경우] 상단 패딩 보정 */' +
+			'.custom-dlg-box.has-no-icon {' +
+			'  padding-top: 34px;' +
 			'}' +
 			'/* 버튼 액션 그룹 */' +
 			'.custom-dlg-actions {' +
@@ -107,12 +122,12 @@
 			'}' +
 			'.custom-dlg-btn {' +
 			'  flex: 1;' +
-			'  min-height: 44px;' +
+			'  min-height: 46px;' +
 			'  padding: 10px 18px;' +
 			'  border: none;' +
-			'  border-radius: 10px;' +
-			'  font-size: 0.95rem;' +
-			'  font-weight: 600;' +
+			'  border-radius: 12px;' +
+			'  font-size: 0.98rem;' +
+			'  font-weight: 700;' +
 			'  cursor: pointer;' +
 			'  outline: none;' +
 			'  transition: all 0.15s ease;' +
@@ -128,13 +143,13 @@
 			'  transform: scale(0.97);' +
 			'}' +
 			'.custom-dlg-btn.btn-confirm {' +
-			'  background: linear-gradient(135deg, #6964DB 0%, #5E3BEE 100%);' +
+			'  background: linear-gradient(135deg, #5B42F3 0%, #4E33E8 100%);' +
 			'  color: #ffffff;' +
-			'  box-shadow: 0 4px 12px rgba(105, 100, 219, 0.3);' +
+			'  box-shadow: 0 4px 14px rgba(91, 66, 243, 0.35);' +
 			'}' +
 			'.custom-dlg-btn.btn-confirm:hover {' +
-			'  background: linear-gradient(135deg, #5b56cf 0%, #5130dd 100%);' +
-			'  box-shadow: 0 6px 16px rgba(105, 100, 219, 0.4);' +
+			'  background: linear-gradient(135deg, #4f35e5 0%, #4326db 100%);' +
+			'  box-shadow: 0 6px 18px rgba(91, 66, 243, 0.45);' +
 			'}' +
 			'.custom-dlg-btn.btn-cancel {' +
 			'  background: #f1f5f9;' +
@@ -144,32 +159,36 @@
 			'  background: #e2e8f0;' +
 			'  color: #1e293b;' +
 			'}' +
-			'/* 모바일 화면 (가로 480px 이하) 반응형 스타일 */' +
+			'/* 모바일 반응형 미디어 쿼리 */' +
 			'@media (max-width: 480px) {' +
 			'  .custom-dlg-box {' +
 			'    max-width: 100%;' +
-			'    padding: 22px 16px 18px;' +
-			'    border-radius: 16px;' +
+			'    padding: 24px 18px 20px;' +
+			'    border-radius: 18px;' +
 			'  }' +
 			'  .custom-dlg-icon-wrap {' +
-			'    width: 48px;' +
-			'    height: 48px;' +
-			'    margin-bottom: 12px;' +
+			'    width: 52px;' +
+			'    height: 52px;' +
+			'    margin-bottom: 14px;' +
 			'  }' +
 			'  .custom-dlg-icon-wrap svg {' +
-			'    width: 24px;' +
-			'    height: 24px;' +
+			'    width: 26px;' +
+			'    height: 26px;' +
 			'  }' +
 			'  .custom-dlg-title {' +
-			'    font-size: 1.05rem;' +
+			'    font-size: 1.1rem;' +
 			'  }' +
 			'  .custom-dlg-message {' +
-			'    font-size: 0.9rem;' +
-			'    margin-bottom: 18px;' +
+			'    font-size: 0.92rem;' +
+			'    margin-bottom: 20px;' +
+			'  }' +
+			'  .custom-dlg-box.has-no-title .custom-dlg-message {' +
+			'    font-size: 0.98rem;' +
+			'    margin-bottom: 22px;' +
 			'  }' +
 			'  .custom-dlg-btn {' +
-			'    min-height: 42px;' +
-			'    font-size: 0.9rem;' +
+			'    min-height: 44px;' +
+			'    font-size: 0.94rem;' +
 			'    padding: 8px 14px;' +
 			'  }' +
 			'}';
@@ -183,15 +202,15 @@
 
 	// 내장 SVG 고화질 아이콘
 	var ICONS = {
-		warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-		error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-		success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-		info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
-		question: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+		warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+		error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+		success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+		info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+		question: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
 	};
 
 	var overlay = null;
-	var iconWrapEl, titleEl, messageEl, cancelBtn, confirmBtn;
+	var boxEl, iconWrapEl, titleEl, messageEl, cancelBtn, confirmBtn;
 	var currentResolve = null;
 	var currentOptions = null;
 
@@ -214,6 +233,7 @@
 
 		document.body.appendChild(overlay);
 
+		boxEl = overlay.querySelector('.custom-dlg-box');
 		iconWrapEl = overlay.querySelector('#customDlgIcon');
 		titleEl = overlay.querySelector('#customDlgTitle');
 		messageEl = overlay.querySelector('#customDlgMessage');
@@ -241,39 +261,140 @@
 		});
 	}
 
+	/**
+	 * 스마트 파라미터 정규화:
+	 * -------------------------------------------------------------
+	 * 1) alert("메시지")                          -> 제목X, 메시지만, 아이콘(1)O [이미지1번]
+	 * 2) alert("메시지", 0)                       -> 제목X, 메시지만, 아이콘(0)X
+	 * 3) alert("메시지", 1)                       -> 제목X, 메시지만, 아이콘(1)O [이미지1번]
+	 * 4) alert("메시지", "제목")                  -> 제목O, 메시지O, 아이콘(1)O [이미지2번]
+	 * 5) alert("메시지", "제목", 0)               -> 제목O, 메시지O, 아이콘(0)X
+	 * 6) alert("메시지", "제목", 1)               -> 제목O, 메시지O, 아이콘(1)O [이미지2번]
+	 * 7) alert({ title: "...", message: "...", icon: 1 })
+	 * -------------------------------------------------------------
+	 */
+	function normalizeOptions(arg1, arg2, arg3, isConfirmDefault) {
+		var opts = {
+			title: '',
+			message: '',
+			icon: isConfirmDefault ? 5 : 1,
+			isConfirm: isConfirmDefault
+		};
+
+		// 1개 인자: alert("메시지") 또는 alert({ ... })
+		if (arg2 === undefined && arg3 === undefined) {
+			if (typeof arg1 === 'object' && arg1 !== null) {
+				for (var k in arg1) { opts[k] = arg1[k]; }
+				return opts;
+			}
+			opts.message = (arg1 !== undefined && arg1 !== null) ? String(arg1) : '';
+			return opts;
+		}
+
+		// 2개 인자
+		if (arg3 === undefined) {
+			// (A) alert("메시지", 0 또는 1 또는 boolean) -> 제목 없이 메시지만 [이미지 1번 형태]
+			if (typeof arg2 === 'number' || typeof arg2 === 'boolean') {
+				opts.message = (arg1 !== undefined && arg1 !== null) ? String(arg1) : '';
+				opts.icon = arg2;
+				return opts;
+			}
+			// (B) alert("메시지", { ... })
+			if (typeof arg2 === 'object' && arg2 !== null) {
+				for (var k2 in arg2) { opts[k2] = arg2[k2]; }
+				opts.message = opts.message || String(arg1 || '');
+				return opts;
+			}
+			// (C) alert("메시지", "제목") -> 본문 + 제목 [이미지 2번 형태]
+			if (typeof arg1 === 'string' && typeof arg2 === 'string') {
+				opts.message = arg1;
+				opts.title = arg2;
+				return opts;
+			}
+		}
+
+		// 3개 인자: alert("메시지", "제목", 0 또는 1 또는 { ... })
+		if (typeof arg1 === 'string' && typeof arg2 === 'string') {
+			opts.message = arg1;
+			opts.title = arg2;
+			if (typeof arg3 === 'number' || typeof arg3 === 'boolean' || typeof arg3 === 'string') {
+				opts.icon = arg3;
+			} else if (typeof arg3 === 'object' && arg3 !== null) {
+				for (var k3 in arg3) { opts[k3] = arg3[k3]; }
+			}
+			return opts;
+		}
+
+		return opts;
+	}
+
 	function open(opts) {
 		init();
 		currentOptions = opts || {};
 
 		var message = currentOptions.message || '';
 		var title = currentOptions.title || '';
-		var type = currentOptions.type || (currentOptions.isConfirm ? 'question' : 'warning');
 		var confirmText = currentOptions.confirmText || '확인';
 		var cancelText = currentOptions.cancelText || '취소';
 		var isConfirm = !!currentOptions.isConfirm;
 
-		// 아이콘
-		iconWrapEl.className = 'custom-dlg-icon-wrap type-' + type;
-		iconWrapEl.innerHTML = ICONS[type] || ICONS.info;
-		iconWrapEl.style.display = currentOptions.showIcon === false ? 'none' : 'flex';
+		// =========================================================================
+		// 1. 아이콘 표시 여부 / 타입 판별 (0: 없음, 1: 경고, 2: 에러, 3: 성공, 4: 안내, 5: 질문)
+		// =========================================================================
+		var iconVal = currentOptions.icon !== undefined ? currentOptions.icon 
+		            : (currentOptions.showIcon !== undefined ? currentOptions.showIcon 
+		            : currentOptions.type);
 
-		// 타이틀
-		if (title) {
-			titleEl.textContent = title;
-			titleEl.style.display = 'block';
+		// 0, false, '0', 'none', 'hide' 이면 아이콘 숨김!
+		if (iconVal === 0 || iconVal === false || iconVal === '0' || iconVal === 'none' || iconVal === 'hide') {
+			iconWrapEl.style.display = 'none';
+			boxEl.classList.add('has-no-icon');
 		} else {
-			titleEl.style.display = 'none';
+			boxEl.classList.remove('has-no-icon');
+			var type = 'warning'; // 기본값 (1 or true)
+
+			if (iconVal === 1 || iconVal === true || iconVal === '1' || iconVal === 'warning') {
+				type = 'warning';   // 노란색 경고
+			} else if (iconVal === 2 || iconVal === '2' || iconVal === 'error' || iconVal === 'danger') {
+				type = 'error';     // 빨간색 에러
+			} else if (iconVal === 3 || iconVal === '3' || iconVal === 'success') {
+				type = 'success';   // 초록색 성공
+			} else if (iconVal === 4 || iconVal === '4' || iconVal === 'info') {
+				type = 'info';      // 파란색 정보
+			} else if (iconVal === 5 || iconVal === '5' || iconVal === 'question') {
+				type = 'question';  // 보라색 질문
+			} else if (typeof iconVal === 'string' && ICONS[iconVal]) {
+				type = iconVal;
+			} else if (isConfirm) {
+				type = 'question';
+			}
+
+			iconWrapEl.className = 'custom-dlg-icon-wrap type-' + type;
+			iconWrapEl.innerHTML = ICONS[type] || ICONS.warning;
+			iconWrapEl.style.display = 'flex';
 		}
 
-		// 메시지
+		// =========================================================================
+		// 2. 제목(Title) 유무에 따른 클래스 제어
+		// =========================================================================
+		if (title && title.trim() !== '') {
+			titleEl.textContent = title;
+			titleEl.style.display = 'block';
+			boxEl.classList.remove('has-no-title');
+		} else {
+			titleEl.style.display = 'none';
+			boxEl.classList.add('has-no-title'); // 제목 없을 땐 본문 텍스트가 메인이 됨
+		}
+
+		// 3. 본문 메시지 설정
 		messageEl.textContent = message;
 
-		// 버튼 제어
+		// 4. 버튼 제어
 		confirmBtn.textContent = confirmText;
 		cancelBtn.textContent = cancelText;
 		cancelBtn.style.display = isConfirm ? 'inline-flex' : 'none';
 
-		// 모달 활성화 및 배경 스크롤 방지
+		// 5. 모달 활성화 및 배경 스크롤 방지
 		overlay.classList.add('active');
 		document.body.style.overflow = 'hidden';
 
@@ -311,38 +432,39 @@
 	var CustomDialog = {
 		/**
 		 * 커스텀 Alert
-		 * @param {string} message 알림 메시지
-		 * @param {string} [title] 알림 제목
-		 * @param {Object} [options] 추가 옵션 (type: 'warning'|'error'|'success'|'info', confirmText, onConfirm, showIcon)
-		 * @returns {Promise<boolean>}
+		 * 
+		 * 사용법:
+		 * [케이스 1: 제목 없이 메시지만] (첫 번째 이미지 형태)
+		 * - CustomDialog.alert("이름을 입력해 주세요.")
+		 * - CustomDialog.alert("이름을 입력해 주세요.", 1)  // 아이콘 1(경고)
+		 * - CustomDialog.alert("이름을 입력해 주세요.", 0)  // 아이콘 0(숨김)
+		 * 
+		 * [케이스 2: 제목 + 메시지 둘 다] (두 번째 이미지 형태)
+		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.")
+		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 1)
+		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 0)
 		 */
-		alert: function (message, title, options) {
-			var opts = typeof title === 'object' ? title : (options || {});
-			if (typeof title === 'string') opts.title = title;
-			opts.message = message;
-			opts.isConfirm = false;
+		alert: function (arg1, arg2, arg3) {
+			var opts = normalizeOptions(arg1, arg2, arg3, false);
 			return open(opts);
 		},
 
 		/**
 		 * 커스텀 Confirm
-		 * @param {string} message 확인 질문 메시지
-		 * @param {string} [title] 확인창 제목
-		 * @param {Object} [options] 추가 옵션 (type: 'question'|'warning'|'info', confirmText, cancelText, onConfirm, onCancel, showIcon)
-		 * @returns {Promise<boolean>} 사용자가 확인 누르면 true, 취소/ESC 시 false 반환
+		 * 
+		 * 사용법:
+		 * - CustomDialog.confirm("정말 삭제하시겠습니까?")
+		 * - CustomDialog.confirm("삭제 안내", "정말 삭제하시겠습니까?", 1)
 		 */
-		confirm: function (message, title, options) {
-			var opts = typeof title === 'object' ? title : (options || {});
-			if (typeof title === 'string') opts.title = title;
-			opts.message = message;
-			opts.isConfirm = true;
+		confirm: function (arg1, arg2, arg3) {
+			var opts = normalizeOptions(arg1, arg2, arg3, true);
 			return open(opts);
 		},
 
 		close: close
 	};
 
-	// 전역 변수 등록
+	// 전역 헬퍼 등록
 	global.CustomDialog = CustomDialog;
 	global.customAlert = CustomDialog.alert;
 	global.customConfirm = CustomDialog.confirm;
