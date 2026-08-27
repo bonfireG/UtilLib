@@ -4,12 +4,11 @@
  * 파일명: custom-dialog.js
  * 
  * - 외부 라이브러리 및 별도 CSS 파일 불필요 (단일 JS 파일로 완벽 동작)
- * - [케이스 1] 제목 없이 본문 메시지만 있는 경우 지원
- * - [케이스 2] 제목 + 본문 메시지가 모두 있는 경우 지원
- * - 0이면 아이콘 숨김, 1이면 경고 아이콘 표시 등 숫자 옵션 지원
- * - Promise(async/await) 및 콜백 완벽 지원
- * - 모바일/태블릿/데스크탑 100% 반응형 지원
- * - ESC / Enter 키보드 접근성 지원 & 배경 스크롤 방지
+ * - 인자 순서: CustomDialog.alert(제목, 본문내용, 아이콘)
+ *   1) CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 1) -> 제목 + 본문 + 경고아이콘
+ *   2) CustomDialog.alert("이름을 입력해 주세요.") -> 제목 없이 본문만 깔끔하게
+ *   3) CustomDialog.alert("이름을 입력해 주세요.", 1) -> 제목 없이 본문 + 경고아이콘
+ *   4) CustomDialog.alert("이름을 입력해 주세요.", 0) -> 제목 없이 본문만 (아이콘 숨김)
  * ============================================================================
  */
 (function (global) {
@@ -83,7 +82,7 @@
 			'.custom-dlg-icon-wrap.type-success { background: #D1FAE5; color: #10B981; }' +
 			'.custom-dlg-icon-wrap.type-info    { background: #EEF2FF; color: #6366F1; }' +
 			'.custom-dlg-icon-wrap.type-question{ background: #EDE9FE; color: #7C3AED; }' +
-			'/* 제목 (Title) */' +
+			'/* [제목] 상단 굵은 텍스트 */' +
 			'.custom-dlg-title {' +
 			'  font-size: 1.2rem;' +
 			'  font-weight: 700;' +
@@ -92,7 +91,7 @@
 			'  word-break: keep-all;' +
 			'  line-height: 1.4;' +
 			'}' +
-			'/* 본문 메시지 (Message) */' +
+			'/* [본문 메시지] 하단 설명 텍스트 */' +
 			'.custom-dlg-message {' +
 			'  font-size: 0.96rem;' +
 			'  color: #64748b;' +
@@ -101,7 +100,7 @@
 			'  word-break: keep-all;' +
 			'  white-space: pre-wrap;' +
 			'}' +
-			'/* [제목이 없는 경우] 본문 메시지를 메인 텍스트로 강조 */' +
+			'/* [제목이 없는 경우] 본문 텍스트를 메인으로 크게 표시 */' +
 			'.custom-dlg-box.has-no-title .custom-dlg-message {' +
 			'  font-size: 1.05rem;' +
 			'  font-weight: 600;' +
@@ -262,14 +261,14 @@
 	}
 
 	/**
-	 * 스마트 파라미터 정규화:
+	 * 파라미터 정규화 (1번째: 제목, 2번째: 본문내용, 3번째: 아이콘)
 	 * -------------------------------------------------------------
-	 * 1) alert("메시지")                          -> 제목X, 메시지만, 아이콘(1)O [이미지1번]
-	 * 2) alert("메시지", 0)                       -> 제목X, 메시지만, 아이콘(0)X
-	 * 3) alert("메시지", 1)                       -> 제목X, 메시지만, 아이콘(1)O [이미지1번]
-	 * 4) alert("메시지", "제목")                  -> 제목O, 메시지O, 아이콘(1)O [이미지2번]
-	 * 5) alert("메시지", "제목", 0)               -> 제목O, 메시지O, 아이콘(0)X
-	 * 6) alert("메시지", "제목", 1)               -> 제목O, 메시지O, 아이콘(1)O [이미지2번]
+	 * 1) alert("본문내용")                          -> 제목 없이 본문내용만 표시
+	 * 2) alert("본문내용", 0)                       -> 제목 없이 본문내용 + 아이콘X
+	 * 3) alert("본문내용", 1)                       -> 제목 없이 본문내용 + 경고아이콘
+	 * 4) alert("제목", "본문내용")                  -> 제목(상단) + 본문내용(하단) + 경고아이콘
+	 * 5) alert("제목", "본문내용", 1)               -> 제목(상단) + 본문내용(하단) + 경고아이콘
+	 * 6) alert("제목", "본문내용", 0)               -> 제목(상단) + 본문내용(하단) + 아이콘X
 	 * 7) alert({ title: "...", message: "...", icon: 1 })
 	 * -------------------------------------------------------------
 	 */
@@ -281,7 +280,7 @@
 			isConfirm: isConfirmDefault
 		};
 
-		// 1개 인자: alert("메시지") 또는 alert({ ... })
+		// 1개 인자: alert("본문내용") 또는 alert({ ... })
 		if (arg2 === undefined && arg3 === undefined) {
 			if (typeof arg1 === 'object' && arg1 !== null) {
 				for (var k in arg1) { opts[k] = arg1[k]; }
@@ -293,30 +292,30 @@
 
 		// 2개 인자
 		if (arg3 === undefined) {
-			// (A) alert("메시지", 0 또는 1 또는 boolean) -> 제목 없이 메시지만 [이미지 1번 형태]
+			// (A) alert("본문내용", 0 또는 1) -> 2번째가 숫자/불리언이면 [본문내용, 아이콘] (제목 없음)
 			if (typeof arg2 === 'number' || typeof arg2 === 'boolean') {
 				opts.message = (arg1 !== undefined && arg1 !== null) ? String(arg1) : '';
 				opts.icon = arg2;
 				return opts;
 			}
-			// (B) alert("메시지", { ... })
+			// (B) alert("본문내용", { ... })
 			if (typeof arg2 === 'object' && arg2 !== null) {
 				for (var k2 in arg2) { opts[k2] = arg2[k2]; }
 				opts.message = opts.message || String(arg1 || '');
 				return opts;
 			}
-			// (C) alert("메시지", "제목") -> 본문 + 제목 [이미지 2번 형태]
+			// (C) alert("제목", "본문내용") -> 1번째: 제목, 2번째: 본문내용!
 			if (typeof arg1 === 'string' && typeof arg2 === 'string') {
-				opts.message = arg1;
-				opts.title = arg2;
+				opts.title = arg1;
+				opts.message = arg2;
 				return opts;
 			}
 		}
 
-		// 3개 인자: alert("메시지", "제목", 0 또는 1 또는 { ... })
+		// 3개 인자: alert("제목", "본문내용", 0 또는 1 또는 { ... })
 		if (typeof arg1 === 'string' && typeof arg2 === 'string') {
-			opts.message = arg1;
-			opts.title = arg2;
+			opts.title = arg1;
+			opts.message = arg2;
 			if (typeof arg3 === 'number' || typeof arg3 === 'boolean' || typeof arg3 === 'string') {
 				opts.icon = arg3;
 			} else if (typeof arg3 === 'object' && arg3 !== null) {
@@ -434,15 +433,14 @@
 		 * 커스텀 Alert
 		 * 
 		 * 사용법:
-		 * [케이스 1: 제목 없이 메시지만] (첫 번째 이미지 형태)
-		 * - CustomDialog.alert("이름을 입력해 주세요.")
-		 * - CustomDialog.alert("이름을 입력해 주세요.", 1)  // 아이콘 1(경고)
-		 * - CustomDialog.alert("이름을 입력해 주세요.", 0)  // 아이콘 0(숨김)
+		 * [순서: 제목, 본문내용, 아이콘]
+		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 1) -> 제목 + 본문 + 경고아이콘
+		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 0) -> 제목 + 본문 + 아이콘X
 		 * 
-		 * [케이스 2: 제목 + 메시지 둘 다] (두 번째 이미지 형태)
-		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.")
-		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 1)
-		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 0)
+		 * [제목 없이 내용만 쓸 때]
+		 * - CustomDialog.alert("이름을 입력해 주세요.") -> 내용만 크게 표시
+		 * - CustomDialog.alert("이름을 입력해 주세요.", 1) -> 내용만 크게 + 경고아이콘
+		 * - CustomDialog.alert("이름을 입력해 주세요.", 0) -> 내용만 크게 + 아이콘X
 		 */
 		alert: function (arg1, arg2, arg3) {
 			var opts = normalizeOptions(arg1, arg2, arg3, false);
@@ -453,8 +451,8 @@
 		 * 커스텀 Confirm
 		 * 
 		 * 사용법:
-		 * - CustomDialog.confirm("정말 삭제하시겠습니까?")
 		 * - CustomDialog.confirm("삭제 안내", "정말 삭제하시겠습니까?", 1)
+		 * - CustomDialog.confirm("정말 삭제하시겠습니까?", 1)
 		 */
 		confirm: function (arg1, arg2, arg3) {
 			var opts = normalizeOptions(arg1, arg2, arg3, true);
