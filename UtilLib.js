@@ -213,7 +213,12 @@
 		// 동적 폼 생성 및 POST 전송
 		submit: function(url, params, target) {
 			if (bonfireG.Validator.isEmpty(url)) return;
-			if (bonfireG.Loading) bonfireG.Loading.show(); // submit 시 로딩바
+			//if (bonfireG.Loading) bonfireG.Loading.show(); // submit 시 로딩바
+			if (target && target !== "_self") {
+				if (bonfireG.Loading) bonfireG.Loading.hide(); // 타겟이 있으면 로딩 끄기
+			} else {
+				if (bonfireG.Loading) bonfireG.Loading.show(); // 일반 이동일 때만 로딩 켜기
+			}
 			
 			var form = document.createElement("form");
 			form.setAttribute("method", "post");
