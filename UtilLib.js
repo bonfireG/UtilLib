@@ -211,7 +211,7 @@
 			window.location.href = url;
 		},
 		// 동적 폼 생성 및 POST 전송
-		submit: function(url, params) {
+		submit: function(url, params, target) {
 			if (bonfireG.Validator.isEmpty(url)) return;
 			if (bonfireG.Loading) bonfireG.Loading.show(); // submit 시 로딩바
 			
@@ -219,6 +219,10 @@
 			form.setAttribute("method", "post");
 			form.setAttribute("action", url);
 			
+			if (target) {
+				form.setAttribute("target", target);
+			}
+		
 			if (params && typeof params === 'object') {
 				for (var key in params) {
 					if (params.hasOwnProperty(key)) {
