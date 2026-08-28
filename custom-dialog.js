@@ -4,6 +4,7 @@
  * 파일명: custom-dialog.js
  * 
  * - 외부 라이브러리 및 별도 CSS 파일 불필요 (단일 JS 파일로 완벽 동작)
+ * - 스크롤바 사라짐으로 인한 화면 덜컹거림(Layout Shift) 완벽 방지 처리
  * - 인자 순서: CustomDialog.alert(제목, 본문내용, 아이콘)
  *   1) CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 1) -> 제목 + 본문 + 경고아이콘
  *   2) CustomDialog.alert("이름을 입력해 주세요.") -> 제목 없이 본문만 깔끔하게
@@ -11,7 +12,7 @@
  *   4) CustomDialog.alert("이름을 입력해 주세요.", 0) -> 제목 없이 본문만 (아이콘 숨김)
  *
  * 0  아이콘 숨김 (None)	단순 텍스트 안내, 기본 팝업
- * 1  🟡 노란색 경고 (Warning)	필수값 미입력(사진의 삼각형 느낌표), 주의 안내
+ * 1  🟡 노란색 경고 (Warning)	필수값 미입력(삼각형 느낌표), 주의 안내
  * 2  🔴 빨간색 에러 (Error)	서버 오류, 실패, 권한 없음
  * 3  🟢 초록색 성공 (Success)	저장 완료, 등록 완료
  * 4  🔵 파란색 안내 (Info)	일반 공지, 정보 안내
@@ -220,6 +221,38 @@
 	var currentResolve = null;
 	var currentOptions = null;
 
+	// =========================================================================
+	// 🌟 스크롤바 락 & 화면 밀림(Layout Shift) 방지 헬퍼
+	// =========================================================================
+	var originalBodyOverflow = '';
+	var originalBodyPaddingRight = '';
+	var isBodyLocked = false;
+
+	function lockScroll() {
+		if (isBodyLocked) return;
+
+		// 브라우저의 현재 스크롤바 너비 계산 (전체창 너비 - 실제 문서 너비)
+		var scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+		originalBodyOverflow = document.body.style.overflow;
+		originalBodyPaddingRight = document.body.style.paddingRight;
+
+		// 스크롤바가 존재하는 경우 사라지는 폭만큼 body에 padding-right 부여
+		if (scrollbarWidth > 0) {
+			var currentPadding = parseFloat(window.getComputedStyle(document.body).paddingRight) || 0;
+			document.body.style.paddingRight = (currentPadding + scrollbarWidth) + 'px';
+		}
+		document.body.style.overflow = 'hidden';
+		isBodyLocked = true;
+	}
+
+	function unlockScroll() {
+		if (!isBodyLocked) return;
+
+		document.body.style.overflow = originalBodyOverflow;
+		document.body.style.paddingRight = originalBodyPaddingRight;
+		isBodyLocked = false;
+	}
+
 	function init() {
 		if (overlay) return;
 		injectStyles();
@@ -269,15 +302,6 @@
 
 	/**
 	 * 파라미터 정규화 (1번째: 제목, 2번째: 본문내용, 3번째: 아이콘)
-	 * -------------------------------------------------------------
-	 * 1) alert("본문내용")                          -> 제목 없이 본문내용만 표시
-	 * 2) alert("본문내용", 0)                       -> 제목 없이 본문내용 + 아이콘X
-	 * 3) alert("본문내용", 1)                       -> 제목 없이 본문내용 + 경고아이콘
-	 * 4) alert("제목", "본문내용")                  -> 제목(상단) + 본문내용(하단) + 경고아이콘
-	 * 5) alert("제목", "본문내용", 1)               -> 제목(상단) + 본문내용(하단) + 경고아이콘
-	 * 6) alert("제목", "본문내용", 0)               -> 제목(상단) + 본문내용(하단) + 아이콘X
-	 * 7) alert({ title: "...", message: "...", icon: 1 })
-	 * -------------------------------------------------------------
 	 */
 	function normalizeOptions(arg1, arg2, arg3, isConfirmDefault) {
 		var opts = {
@@ -299,19 +323,16 @@
 
 		// 2개 인자
 		if (arg3 === undefined) {
-			// (A) alert("본문내용", 0 또는 1) -> 2번째가 숫자/불리언이면 [본문내용, 아이콘] (제목 없음)
 			if (typeof arg2 === 'number' || typeof arg2 === 'boolean') {
 				opts.message = (arg1 !== undefined && arg1 !== null) ? String(arg1) : '';
 				opts.icon = arg2;
 				return opts;
 			}
-			// (B) alert("본문내용", { ... })
 			if (typeof arg2 === 'object' && arg2 !== null) {
 				for (var k2 in arg2) { opts[k2] = arg2[k2]; }
 				opts.message = opts.message || String(arg1 || '');
 				return opts;
 			}
-			// (C) alert("제목", "본문내용") -> 1번째: 제목, 2번째: 본문내용!
 			if (typeof arg1 === 'string' && typeof arg2 === 'string') {
 				opts.title = arg1;
 				opts.message = arg2;
@@ -344,31 +365,28 @@
 		var cancelText = currentOptions.cancelText || '취소';
 		var isConfirm = !!currentOptions.isConfirm;
 
-		// =========================================================================
-		// 1. 아이콘 표시 여부 / 타입 판별 (0: 없음, 1: 경고, 2: 에러, 3: 성공, 4: 안내, 5: 질문)
-		// =========================================================================
+		// 1. 아이콘 표시 여부 / 타입 판별
 		var iconVal = currentOptions.icon !== undefined ? currentOptions.icon 
 		            : (currentOptions.showIcon !== undefined ? currentOptions.showIcon 
 		            : currentOptions.type);
 
-		// 0, false, '0', 'none', 'hide' 이면 아이콘 숨김!
 		if (iconVal === 0 || iconVal === false || iconVal === '0' || iconVal === 'none' || iconVal === 'hide') {
 			iconWrapEl.style.display = 'none';
 			boxEl.classList.add('has-no-icon');
 		} else {
 			boxEl.classList.remove('has-no-icon');
-			var type = 'warning'; // 기본값 (1 or true)
+			var type = 'warning';
 
 			if (iconVal === 1 || iconVal === true || iconVal === '1' || iconVal === 'warning') {
-				type = 'warning';   // 노란색 경고
+				type = 'warning';
 			} else if (iconVal === 2 || iconVal === '2' || iconVal === 'error' || iconVal === 'danger') {
-				type = 'error';     // 빨간색 에러
+				type = 'error';
 			} else if (iconVal === 3 || iconVal === '3' || iconVal === 'success') {
-				type = 'success';   // 초록색 성공
+				type = 'success';
 			} else if (iconVal === 4 || iconVal === '4' || iconVal === 'info') {
-				type = 'info';      // 파란색 정보
+				type = 'info';
 			} else if (iconVal === 5 || iconVal === '5' || iconVal === 'question') {
-				type = 'question';  // 보라색 질문
+				type = 'question';
 			} else if (typeof iconVal === 'string' && ICONS[iconVal]) {
 				type = iconVal;
 			} else if (isConfirm) {
@@ -380,16 +398,14 @@
 			iconWrapEl.style.display = 'flex';
 		}
 
-		// =========================================================================
-		// 2. 제목(Title) 유무에 따른 클래스 제어
-		// =========================================================================
+		// 2. 제목 유무 제어
 		if (title && title.trim() !== '') {
 			titleEl.textContent = title;
 			titleEl.style.display = 'block';
 			boxEl.classList.remove('has-no-title');
 		} else {
 			titleEl.style.display = 'none';
-			boxEl.classList.add('has-no-title'); // 제목 없을 땐 본문 텍스트가 메인이 됨
+			boxEl.classList.add('has-no-title');
 		}
 
 		// 3. 본문 메시지 설정
@@ -400,16 +416,16 @@
 		cancelBtn.textContent = cancelText;
 		cancelBtn.style.display = isConfirm ? 'inline-flex' : 'none';
 
-		// 5. 모달 활성화 및 배경 스크롤 방지
+		// 5. 모달 활성화 및 화면 밀림 방지 스크롤 잠금
 		overlay.classList.add('active');
-		document.body.style.overflow = 'hidden';
+		lockScroll();
 
 		// 확인 버튼 포커스
 		setTimeout(function () {
 			confirmBtn.focus();
 		}, 50);
 
-		// Promise 반환 (async/await 및 .then 완벽 호환)
+		// Promise 반환
 		return new Promise(function (resolve) {
 			currentResolve = resolve;
 		});
@@ -419,7 +435,7 @@
 		if (!overlay || !overlay.classList.contains('active')) return;
 
 		overlay.classList.remove('active');
-		document.body.style.overflow = '';
+		unlockScroll();
 
 		var opts = currentOptions || {};
 		if (result && typeof opts.onConfirm === 'function') {
@@ -436,31 +452,11 @@
 	}
 
 	var CustomDialog = {
-		/**
-		 * 커스텀 Alert
-		 * 
-		 * 사용법:
-		 * [순서: 제목, 본문내용, 아이콘]
-		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 1) -> 제목 + 본문 + 경고아이콘
-		 * - CustomDialog.alert("약관 동의 안내", "모든 필수 약관에 동의해 주세요.", 0) -> 제목 + 본문 + 아이콘X
-		 * 
-		 * [제목 없이 내용만 쓸 때]
-		 * - CustomDialog.alert("이름을 입력해 주세요.") -> 내용만 크게 표시
-		 * - CustomDialog.alert("이름을 입력해 주세요.", 1) -> 내용만 크게 + 경고아이콘
-		 * - CustomDialog.alert("이름을 입력해 주세요.", 0) -> 내용만 크게 + 아이콘X
-		 */
 		alert: function (arg1, arg2, arg3) {
 			var opts = normalizeOptions(arg1, arg2, arg3, false);
 			return open(opts);
 		},
 
-		/**
-		 * 커스텀 Confirm
-		 * 
-		 * 사용법:
-		 * - CustomDialog.confirm("삭제 안내", "정말 삭제하시겠습니까?", 1)
-		 * - CustomDialog.confirm("정말 삭제하시겠습니까?", 1)
-		 */
 		confirm: function (arg1, arg2, arg3) {
 			var opts = normalizeOptions(arg1, arg2, arg3, true);
 			return open(opts);
