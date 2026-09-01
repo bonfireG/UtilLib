@@ -87,11 +87,11 @@
 	};
 
 	/**
-	 * 5. Dialog: 모던 반응형 커스텀 Alert / Confirm 다이얼로그 (Core 로그와 독립 동작)
+	 * 5. Dialog: 모던 반응형 커스텀 Alert / Confirm / Prompt 다이얼로그 (Core 로그와 독립 동작)
 	 */
 	bonfireG.Dialog = (function() {
 		var overlay = null;
-		var boxEl, titleEl, messageEl, cancelBtn, confirmBtn;
+		var boxEl, titleEl, messageEl, inputWrapEl, inputEl, cancelBtn, confirmBtn;
 		var currentResolve = null;
 		var currentOptions = null;
 		var isBodyLocked = false;
@@ -127,7 +127,7 @@
 				'  opacity: 1;' +
 				'  visibility: visible;' +
 				'}' +
-				'/* 다이얼로그 본체 박스 (두 번째 팝업 형태) */' +
+				'/* 다이얼로그 본체 박스 */' +
 				'.bonfire-dlg-box {' +
 				'  background: #ffffff;' +
 				'  width: 100%;' +
@@ -158,7 +158,7 @@
 				'  font-weight: 400;' +
 				'  color: #4b5563;' +
 				'  line-height: 1.55;' +
-				'  margin: 0 0 24px 0;' +
+				'  margin: 0 0 20px 0;' +
 				'  word-break: keep-all;' +
 				'  white-space: pre-wrap;' +
 				'}' +
@@ -167,7 +167,30 @@
 				'  font-size: 1.05rem;' +
 				'  font-weight: 600;' +
 				'  color: #1f2937;' +
-				'  margin-bottom: 22px;' +
+				'  margin-bottom: 20px;' +
+				'}' +
+				'/* 프롬프트 입력창 영역 */' +
+				'.bonfire-dlg-input-wrap {' +
+				'  margin: 0 0 22px 0;' +
+				'  width: 100%;' +
+				'  box-sizing: border-box;' +
+				'}' +
+				'.bonfire-dlg-input {' +
+				'  width: 100%;' +
+				'  height: 44px;' +
+				'  padding: 0 14px;' +
+				'  border: 1.5px solid #d1d5db;' +
+				'  border-radius: 8px;' +
+				'  font-size: 0.95rem;' +
+				'  color: #111827;' +
+				'  box-sizing: border-box;' +
+				'  outline: none;' +
+				'  transition: border-color 0.15s ease, box-shadow 0.15s ease;' +
+				'  font-family: inherit;' +
+				'}' +
+				'.bonfire-dlg-input:focus {' +
+				'  border-color: #2563EB;' +
+				'  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);' +
 				'}' +
 				'/* 하단 액션 버튼 그룹 (우측 정렬) */' +
 				'.bonfire-dlg-actions {' +
@@ -197,7 +220,7 @@
 				'.bonfire-dlg-btn:active {' +
 				'  transform: scale(0.97);' +
 				'}' +
-				'/* 확인 버튼 (파란색 메인) */' +
+				'/* 확인 버튼 */' +
 				'.bonfire-dlg-btn.btn-confirm {' +
 				'  background-color: #2563EB;' +
 				'  color: #ffffff;' +
@@ -205,7 +228,7 @@
 				'.bonfire-dlg-btn.btn-confirm:hover {' +
 				'  background-color: #1D4ED8;' +
 				'}' +
-				'/* 취소 버튼 (연회색 서브) */' +
+				'/* 취소 버튼 */' +
 				'.bonfire-dlg-btn.btn-cancel {' +
 				'  background-color: #F1F5F9;' +
 				'  color: #475569;' +
@@ -214,7 +237,7 @@
 				'  background-color: #E2E8F0;' +
 				'  color: #1E293B;' +
 				'}' +
-				'/* 모바일 반응형 최적화 */' +
+				'/* 모바일 반응형 */' +
 				'@media (max-width: 480px) {' +
 				'  .bonfire-dlg-box {' +
 				'    padding: 22px 20px 18px;' +
@@ -225,6 +248,10 @@
 				'  }' +
 				'  .bonfire-dlg-message {' +
 				'    font-size: 0.93rem;' +
+				'  }' +
+				'  .bonfire-dlg-input {' +
+				'    height: 42px;' +
+				'    font-size: 0.92rem;' +
 				'  }' +
 				'  .bonfire-dlg-btn {' +
 				'    height: 42px;' +
@@ -272,6 +299,9 @@
 				'<div class="bonfire-dlg-box" role="dialog" aria-modal="true">' +
 				'  <h3 class="bonfire-dlg-title" id="bonfireDlgTitle"></h3>' +
 				'  <div class="bonfire-dlg-message" id="bonfireDlgMessage"></div>' +
+				'  <div class="bonfire-dlg-input-wrap" id="bonfireDlgInputWrap" style="display:none;">' +
+				'    <input type="text" class="bonfire-dlg-input" id="bonfireDlgInput" />' +
+				'  </div>' +
 				'  <div class="bonfire-dlg-actions">' +
 				'    <button type="button" class="bonfire-dlg-btn btn-cancel" id="bonfireDlgCancel">취소</button>' +
 				'    <button type="button" class="bonfire-dlg-btn btn-confirm" id="bonfireDlgConfirm">확인</button>' +
@@ -283,25 +313,45 @@
 			boxEl = overlay.querySelector('.bonfire-dlg-box');
 			titleEl = overlay.querySelector('#bonfireDlgTitle');
 			messageEl = overlay.querySelector('#bonfireDlgMessage');
+			inputWrapEl = overlay.querySelector('#bonfireDlgInputWrap');
+			inputEl = overlay.querySelector('#bonfireDlgInput');
 			cancelBtn = overlay.querySelector('#bonfireDlgCancel');
 			confirmBtn = overlay.querySelector('#bonfireDlgConfirm');
 
-			confirmBtn.addEventListener('click', function () { close(true); });
-			cancelBtn.addEventListener('click', function () { close(false); });
+			confirmBtn.addEventListener('click', function () { 
+				handleConfirm();
+			});
+
+			cancelBtn.addEventListener('click', function () { 
+				handleCancel();
+			});
+
+			// 인풋에서 Enter 키 입력 시 확인 처리
+			inputEl.addEventListener('keydown', function (e) {
+				if (e.key === 'Enter' || e.keyCode === 13) {
+					e.preventDefault();
+					handleConfirm();
+				}
+			});
 
 			// ESC 키 및 Focus Trap 이벤트
 			window.addEventListener('keydown', function (e) {
 				if (!overlay.classList.contains('active')) return;
 
 				if (e.key === 'Escape' || e.keyCode === 27) {
-					var isOnlyAlert = cancelBtn.style.display === 'none';
-					close(isOnlyAlert ? true : false);
+					var isOnlyAlert = (!currentOptions.isPrompt && cancelBtn.style.display === 'none');
+					if (isOnlyAlert) {
+						close(true);
+					} else {
+						handleCancel();
+					}
 					return;
 				}
 
 				if (e.key === 'Tab' || e.keyCode === 9) {
-					var focusable = [cancelBtn, confirmBtn].filter(function (btn) {
-						return btn.style.display !== 'none';
+					var focusable = [inputEl, cancelBtn, confirmBtn].filter(function (el) {
+						if (el === inputEl) return currentOptions && currentOptions.isPrompt;
+						return el.style.display !== 'none';
 					});
 					if (focusable.length === 0) return;
 
@@ -327,28 +377,54 @@
 			}, { passive: false });
 		}
 
-		function normalizeOptions(arg1, arg2, isConfirmDefault) {
+		function handleConfirm() {
+			if (currentOptions && currentOptions.isPrompt) {
+				close(inputEl.value);
+			} else {
+				close(true);
+			}
+		}
+
+		function handleCancel() {
+			if (currentOptions && currentOptions.isPrompt) {
+				close(null);
+			} else {
+				close(false);
+			}
+		}
+
+		function normalizeOptions(arg1, arg2, mode) {
+			// mode: 'alert' | 'confirm' | 'prompt'
+			var isPrompt = (mode === 'prompt');
+			var isConfirm = (mode === 'confirm' || isPrompt);
+
 			var opts = {
 				title: '',
 				message: '',
 				confirmText: '확인',
 				cancelText: '취소',
-				isConfirm: isConfirmDefault
+				isConfirm: isConfirm,
+				isPrompt: isPrompt,
+				placeholder: '',
+				defaultValue: '',
+				inputType: 'text'
 			};
 
 			if (typeof arg1 === 'object' && arg1 !== null) {
 				for (var key in arg1) { opts[key] = arg1[key]; }
+				opts.isConfirm = isConfirm;
+				opts.isPrompt = isPrompt;
 				return opts;
 			}
 
-			if (arg2 === undefined) {
-				opts.message = (arg1 !== undefined && arg1 !== null) ? String(arg1) : '';
+			if (arg2 === undefined || typeof arg2 === 'number' || typeof arg2 === 'boolean') {
+				opts.message = (arg1 !== undefined && arg1 !== null) ? String(arg1).trim() : '';
 				return opts;
 			}
 
 			if (typeof arg1 === 'string' && typeof arg2 === 'string') {
-				opts.title = arg1;
-				opts.message = arg2;
+				opts.title = arg1.trim();
+				opts.message = arg2.trim();
 				return opts;
 			}
 
@@ -364,7 +440,9 @@
 			var confirmText = currentOptions.confirmText || '확인';
 			var cancelText = currentOptions.cancelText || '취소';
 			var isConfirm = !!currentOptions.isConfirm;
+			var isPrompt = !!currentOptions.isPrompt;
 
+			// 1. 제목 설정
 			if (title && title.trim() !== '') {
 				titleEl.textContent = title;
 				titleEl.style.display = 'block';
@@ -374,7 +452,21 @@
 				boxEl.classList.add('has-no-title');
 			}
 
+			// 2. 메시지 설정
 			messageEl.textContent = message;
+
+			// 3. Prompt 입력창 설정
+			if (isPrompt) {
+				inputWrapEl.style.display = 'block';
+				inputEl.type = currentOptions.inputType || 'text';
+				inputEl.placeholder = currentOptions.placeholder || '';
+				inputEl.value = currentOptions.defaultValue || '';
+			} else {
+				inputWrapEl.style.display = 'none';
+				inputEl.value = '';
+			}
+
+			// 4. 버튼 설정
 			confirmBtn.textContent = confirmText;
 			cancelBtn.textContent = cancelText;
 			cancelBtn.style.display = isConfirm ? 'inline-flex' : 'none';
@@ -383,7 +475,12 @@
 			lockScroll();
 
 			setTimeout(function () {
-				confirmBtn.focus();
+				if (isPrompt) {
+					inputEl.focus();
+					inputEl.select();
+				} else {
+					confirmBtn.focus();
+				}
 			}, 30);
 
 			return new Promise(function (resolve) {
@@ -398,9 +495,9 @@
 			unlockScroll();
 
 			var opts = currentOptions || {};
-			if (result && typeof opts.onConfirm === 'function') {
-				opts.onConfirm();
-			} else if (!result && typeof opts.onCancel === 'function') {
+			if (result !== null && result !== false && typeof opts.onConfirm === 'function') {
+				opts.onConfirm(result);
+			} else if ((result === null || result === false) && typeof opts.onCancel === 'function') {
 				opts.onCancel();
 			}
 
@@ -413,18 +510,22 @@
 
 		return {
 			alert: function(arg1, arg2) {
-				return open(normalizeOptions(arg1, arg2, false));
+				return open(normalizeOptions(arg1, arg2, 'alert'));
 			},
 			confirm: function(arg1, arg2) {
-				return open(normalizeOptions(arg1, arg2, true));
+				return open(normalizeOptions(arg1, arg2, 'confirm'));
+			},
+			prompt: function(arg1, arg2) {
+				return open(normalizeOptions(arg1, arg2, 'prompt'));
 			},
 			close: close
 		};
 	})();
 
-	// bonfireG 바로 밑에서 직접 호출 가능하도록 연결
+	// bonfireG 바로 밑에서 직접 호출 가능하도록 단축 연결
 	bonfireG.alert = bonfireG.Dialog.alert;
 	bonfireG.confirm = bonfireG.Dialog.confirm;
+	bonfireG.prompt = bonfireG.Dialog.prompt;
 
 	/**
 	 * 6. Ajax: 비동기 통신
