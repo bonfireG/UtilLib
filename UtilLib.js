@@ -453,7 +453,12 @@
 			}
 
 			// 2. 메시지 설정
-			messageEl.textContent = message;
+			//messageEl.textContent = message;
+			if (/<[a-z][\s\S]*>/i.test(message) || (opts && opts.isHtml)) {
+				messageEl.innerHTML = message;
+			} else {
+				messageEl.textContent = message;
+			}
 
 			// 3. Prompt 입력창 설정
 			if (isPrompt) {
