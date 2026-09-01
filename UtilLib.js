@@ -77,7 +77,7 @@
 				});
 			}
 		},
-		// [NEW] 이미지 새로고침 (캐시 방지)
+		// 이미지 새로고침 (캐시 방지)
 		refreshImage: function(id, url) {
 			var img = document.getElementById(id);
 			if (!img) return;
@@ -87,10 +87,347 @@
 	};
 
 	/**
-	 * 5. Ajax: 비동기 통신 (최종 개선판)
-	 * - upload 지원
-	 * - async, useLoader, autoHide 옵션 지원
-	 * - requestAnimationFrame으로 렌더링 후 로딩바 종료
+	 * 5. Dialog: 모던 반응형 커스텀 Alert / Confirm 다이얼로그 (Core 로그와 독립 동작)
+	 */
+	bonfireG.Dialog = (function() {
+		var overlay = null;
+		var boxEl, titleEl, messageEl, cancelBtn, confirmBtn;
+		var currentResolve = null;
+		var currentOptions = null;
+		var isBodyLocked = false;
+		var originalBodyOverflow = '';
+		var originalBodyPaddingRight = '';
+
+		function injectStyles() {
+			if (document.getElementById('bonfire-dialog-style')) return;
+
+			var css = 
+				'/* 배경 오버레이 */' +
+				'.bonfire-dlg-overlay {' +
+				'  position: fixed;' +
+				'  top: 0;' +
+				'  left: 0;' +
+				'  width: 100vw;' +
+				'  height: 100vh;' +
+				'  background-color: rgba(0, 0, 0, 0.45);' +
+				'  backdrop-filter: blur(3px);' +
+				'  -webkit-backdrop-filter: blur(3px);' +
+				'  display: flex;' +
+				'  justify-content: center;' +
+				'  align-items: center;' +
+				'  z-index: 9999999;' +
+				'  opacity: 0;' +
+				'  visibility: hidden;' +
+				'  transition: opacity 0.18s ease-out, visibility 0.18s ease-out;' +
+				'  padding: 16px;' +
+				'  box-sizing: border-box;' +
+				'  font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", sans-serif;' +
+				'}' +
+				'.bonfire-dlg-overlay.active {' +
+				'  opacity: 1;' +
+				'  visibility: visible;' +
+				'}' +
+				'/* 다이얼로그 본체 박스 (두 번째 팝업 형태) */' +
+				'.bonfire-dlg-box {' +
+				'  background: #ffffff;' +
+				'  width: 100%;' +
+				'  max-width: 440px;' +
+				'  border-radius: 16px;' +
+				'  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.16), 0 4px 10px -2px rgba(0, 0, 0, 0.06);' +
+				'  padding: 26px 26px 22px;' +
+				'  box-sizing: border-box;' +
+				'  text-align: left;' +
+				'  transform: scale(0.95) translateY(6px);' +
+				'  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);' +
+				'}' +
+				'.bonfire-dlg-overlay.active .bonfire-dlg-box {' +
+				'  transform: scale(1) translateY(0);' +
+				'}' +
+				'/* 타이틀 헤더 */' +
+				'.bonfire-dlg-title {' +
+				'  font-size: 1.18rem;' +
+				'  font-weight: 700;' +
+				'  color: #111827;' +
+				'  margin: 0 0 10px 0;' +
+				'  line-height: 1.4;' +
+				'  word-break: keep-all;' +
+				'}' +
+				'/* 본문 보조 텍스트 */' +
+				'.bonfire-dlg-message {' +
+				'  font-size: 0.98rem;' +
+				'  font-weight: 400;' +
+				'  color: #4b5563;' +
+				'  line-height: 1.55;' +
+				'  margin: 0 0 24px 0;' +
+				'  word-break: keep-all;' +
+				'  white-space: pre-wrap;' +
+				'}' +
+				'/* 제목이 없을 때 본문 강조 */' +
+				'.bonfire-dlg-box.has-no-title .bonfire-dlg-message {' +
+				'  font-size: 1.05rem;' +
+				'  font-weight: 600;' +
+				'  color: #1f2937;' +
+				'  margin-bottom: 22px;' +
+				'}' +
+				'/* 하단 액션 버튼 그룹 (우측 정렬) */' +
+				'.bonfire-dlg-actions {' +
+				'  display: flex;' +
+				'  justify-content: flex-end;' +
+				'  align-items: center;' +
+				'  gap: 10px;' +
+				'}' +
+				'/* 공통 버튼 */' +
+				'.bonfire-dlg-btn {' +
+				'  min-width: 78px;' +
+				'  height: 44px;' +
+				'  padding: 0 18px;' +
+				'  border: none;' +
+				'  border-radius: 8px;' +
+				'  font-size: 0.95rem;' +
+				'  font-weight: 600;' +
+				'  cursor: pointer;' +
+				'  outline: none;' +
+				'  display: inline-flex;' +
+				'  align-items: center;' +
+				'  justify-content: center;' +
+				'  box-sizing: border-box;' +
+				'  user-select: none;' +
+				'  transition: background-color 0.15s ease, transform 0.1s ease;' +
+				'}' +
+				'.bonfire-dlg-btn:active {' +
+				'  transform: scale(0.97);' +
+				'}' +
+				'/* 확인 버튼 (파란색 메인) */' +
+				'.bonfire-dlg-btn.btn-confirm {' +
+				'  background-color: #2563EB;' +
+				'  color: #ffffff;' +
+				'}' +
+				'.bonfire-dlg-btn.btn-confirm:hover {' +
+				'  background-color: #1D4ED8;' +
+				'}' +
+				'/* 취소 버튼 (연회색 서브) */' +
+				'.bonfire-dlg-btn.btn-cancel {' +
+				'  background-color: #F1F5F9;' +
+				'  color: #475569;' +
+				'}' +
+				'.bonfire-dlg-btn.btn-cancel:hover {' +
+				'  background-color: #E2E8F0;' +
+				'  color: #1E293B;' +
+				'}' +
+				'/* 모바일 반응형 최적화 */' +
+				'@media (max-width: 480px) {' +
+				'  .bonfire-dlg-box {' +
+				'    padding: 22px 20px 18px;' +
+				'    border-radius: 14px;' +
+				'  }' +
+				'  .bonfire-dlg-title {' +
+				'    font-size: 1.1rem;' +
+				'  }' +
+				'  .bonfire-dlg-message {' +
+				'    font-size: 0.93rem;' +
+				'  }' +
+				'  .bonfire-dlg-btn {' +
+				'    height: 42px;' +
+				'    min-width: 70px;' +
+				'    font-size: 0.92rem;' +
+				'    padding: 0 14px;' +
+				'  }' +
+				'}';
+
+			var styleEl = document.createElement('style');
+			styleEl.id = 'bonfire-dialog-style';
+			styleEl.type = 'text/css';
+			styleEl.appendChild(document.createTextNode(css));
+			document.head.appendChild(styleEl);
+		}
+
+		function lockScroll() {
+			if (isBodyLocked) return;
+			var scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+			originalBodyOverflow = document.body.style.overflow;
+			originalBodyPaddingRight = document.body.style.paddingRight;
+
+			if (scrollbarWidth > 0) {
+				var currentPadding = parseFloat(window.getComputedStyle(document.body).paddingRight) || 0;
+				document.body.style.paddingRight = (currentPadding + scrollbarWidth) + 'px';
+			}
+			document.body.style.overflow = 'hidden';
+			isBodyLocked = true;
+		}
+
+		function unlockScroll() {
+			if (!isBodyLocked) return;
+			document.body.style.overflow = originalBodyOverflow;
+			document.body.style.paddingRight = originalBodyPaddingRight;
+			isBodyLocked = false;
+		}
+
+		function init() {
+			if (overlay) return;
+			injectStyles();
+
+			overlay = document.createElement('div');
+			overlay.className = 'bonfire-dlg-overlay';
+			overlay.innerHTML = 
+				'<div class="bonfire-dlg-box" role="dialog" aria-modal="true">' +
+				'  <h3 class="bonfire-dlg-title" id="bonfireDlgTitle"></h3>' +
+				'  <div class="bonfire-dlg-message" id="bonfireDlgMessage"></div>' +
+				'  <div class="bonfire-dlg-actions">' +
+				'    <button type="button" class="bonfire-dlg-btn btn-cancel" id="bonfireDlgCancel">취소</button>' +
+				'    <button type="button" class="bonfire-dlg-btn btn-confirm" id="bonfireDlgConfirm">확인</button>' +
+				'  </div>' +
+				'</div>';
+
+			document.body.appendChild(overlay);
+
+			boxEl = overlay.querySelector('.bonfire-dlg-box');
+			titleEl = overlay.querySelector('#bonfireDlgTitle');
+			messageEl = overlay.querySelector('#bonfireDlgMessage');
+			cancelBtn = overlay.querySelector('#bonfireDlgCancel');
+			confirmBtn = overlay.querySelector('#bonfireDlgConfirm');
+
+			confirmBtn.addEventListener('click', function () { close(true); });
+			cancelBtn.addEventListener('click', function () { close(false); });
+
+			// ESC 키 및 Focus Trap 이벤트
+			window.addEventListener('keydown', function (e) {
+				if (!overlay.classList.contains('active')) return;
+
+				if (e.key === 'Escape' || e.keyCode === 27) {
+					var isOnlyAlert = cancelBtn.style.display === 'none';
+					close(isOnlyAlert ? true : false);
+					return;
+				}
+
+				if (e.key === 'Tab' || e.keyCode === 9) {
+					var focusable = [cancelBtn, confirmBtn].filter(function (btn) {
+						return btn.style.display !== 'none';
+					});
+					if (focusable.length === 0) return;
+
+					var first = focusable[0];
+					var last = focusable[focusable.length - 1];
+
+					if (e.shiftKey) {
+						if (document.activeElement === first) {
+							last.focus();
+							e.preventDefault();
+						}
+					} else {
+						if (document.activeElement === last) {
+							first.focus();
+							e.preventDefault();
+						}
+					}
+				}
+			});
+
+			overlay.addEventListener('touchmove', function (e) {
+				if (e.target === overlay) e.preventDefault();
+			}, { passive: false });
+		}
+
+		function normalizeOptions(arg1, arg2, isConfirmDefault) {
+			var opts = {
+				title: '',
+				message: '',
+				confirmText: '확인',
+				cancelText: '취소',
+				isConfirm: isConfirmDefault
+			};
+
+			if (typeof arg1 === 'object' && arg1 !== null) {
+				for (var key in arg1) { opts[key] = arg1[key]; }
+				return opts;
+			}
+
+			if (arg2 === undefined) {
+				opts.message = (arg1 !== undefined && arg1 !== null) ? String(arg1) : '';
+				return opts;
+			}
+
+			if (typeof arg1 === 'string' && typeof arg2 === 'string') {
+				opts.title = arg1;
+				opts.message = arg2;
+				return opts;
+			}
+
+			return opts;
+		}
+
+		function open(opts) {
+			init();
+			currentOptions = opts || {};
+
+			var title = currentOptions.title || '';
+			var message = currentOptions.message || '';
+			var confirmText = currentOptions.confirmText || '확인';
+			var cancelText = currentOptions.cancelText || '취소';
+			var isConfirm = !!currentOptions.isConfirm;
+
+			if (title && title.trim() !== '') {
+				titleEl.textContent = title;
+				titleEl.style.display = 'block';
+				boxEl.classList.remove('has-no-title');
+			} else {
+				titleEl.style.display = 'none';
+				boxEl.classList.add('has-no-title');
+			}
+
+			messageEl.textContent = message;
+			confirmBtn.textContent = confirmText;
+			cancelBtn.textContent = cancelText;
+			cancelBtn.style.display = isConfirm ? 'inline-flex' : 'none';
+
+			overlay.classList.add('active');
+			lockScroll();
+
+			setTimeout(function () {
+				confirmBtn.focus();
+			}, 30);
+
+			return new Promise(function (resolve) {
+				currentResolve = resolve;
+			});
+		}
+
+		function close(result) {
+			if (!overlay || !overlay.classList.contains('active')) return;
+
+			overlay.classList.remove('active');
+			unlockScroll();
+
+			var opts = currentOptions || {};
+			if (result && typeof opts.onConfirm === 'function') {
+				opts.onConfirm();
+			} else if (!result && typeof opts.onCancel === 'function') {
+				opts.onCancel();
+			}
+
+			if (currentResolve) {
+				var resolveFunc = currentResolve;
+				currentResolve = null;
+				resolveFunc(result);
+			}
+		}
+
+		return {
+			alert: function(arg1, arg2) {
+				return open(normalizeOptions(arg1, arg2, false));
+			},
+			confirm: function(arg1, arg2) {
+				return open(normalizeOptions(arg1, arg2, true));
+			},
+			close: close
+		};
+	})();
+
+	// bonfireG 바로 밑에서 직접 호출 가능하도록 연결
+	bonfireG.alert = bonfireG.Dialog.alert;
+	bonfireG.confirm = bonfireG.Dialog.confirm;
+
+	/**
+	 * 6. Ajax: 비동기 통신
 	 */
 	bonfireG.Ajax = {
 		_serialize: function(obj) {
@@ -103,21 +440,17 @@
 			return str.join("&");
 		},
 		
-		/**
-		 * @param options { useLoader: boolean, async: boolean, autoHide: boolean, beforeSend: function, complete: function }
-		 */
 		_request: function(method, url, data, contentType, successCallback, errorCallback, options) {
 			var xhr = new XMLHttpRequest();
 			var payload = null;
 			
 			options = options || {};
-			var useLoader = (options.useLoader !== false); // 기본값 true
-			var isAsync = (options.async !== false);       // 기본값 true
-			var autoHide = (options.autoHide !== false);   // 기본값 true
+			var useLoader = (options.useLoader !== false);
+			var isAsync = (options.async !== false);
+			var autoHide = (options.autoHide !== false);
 
 			if (typeof options.beforeSend === "function") options.beforeSend();
 			
-			// 로딩바 표시
 			if (useLoader && bonfireG.Loading) bonfireG.Loading.show();
 
 			if (method === "GET" && data) {
@@ -140,7 +473,6 @@
 					payload = this._serialize(data);
 				} 
 				else if (contentType === "UPLOAD") {
-					// 파일 업로드 시 Content-Type 헤더 생략 (브라우저 자동 설정)
 					payload = data; 
 				} 
 				else {
@@ -156,7 +488,6 @@
 							if (typeof successCallback === "function") {
 								var response = xhr.responseText;
 								try { response = JSON.parse(response); } catch (e) {}
-								// 성공 콜백 실행 (화면 그리기 등)
 								successCallback(response);
 							}
 						} else {
@@ -169,7 +500,6 @@
 					} catch (e) {
 						console.error("Callback Error:", e);
 					} finally {
-						// 화면 렌더링 완료 감지 후 로딩바 종료 (requestAnimationFrame 사용)
 						if (useLoader && bonfireG.Loading && autoHide) {
 							requestAnimationFrame(function() {
 								requestAnimationFrame(function() {
@@ -194,30 +524,26 @@
 		postForm: function(url, data, successCallback, errorCallback, options) {
 			this._request("POST", url, data, "FORM", successCallback, errorCallback, options);
 		},
-		// 파일 업로드용 (formData 필수)
 		upload: function(url, formData, successCallback, errorCallback, options) {
 			this._request("POST", url, formData, "UPLOAD", successCallback, errorCallback, options);
 		}
 	};
 
 	/**
-     * 6. Page: 페이지 이동 및 제어
-     * - 이동 시 로딩바 표시 기능 추가됨
+     * 7. Page: 페이지 이동 및 제어
      */
 	bonfireG.Page = {
 		move: function(url) {
 			if (bonfireG.Validator.isEmpty(url)) return;
-			if (bonfireG.Loading) bonfireG.Loading.show(); // 페이지 이동 시 로딩바
+			if (bonfireG.Loading) bonfireG.Loading.show();
 			window.location.href = url;
 		},
-		// 동적 폼 생성 및 POST 전송
 		submit: function(url, params, target) {
 			if (bonfireG.Validator.isEmpty(url)) return;
-			//if (bonfireG.Loading) bonfireG.Loading.show(); // submit 시 로딩바
 			if (target && target !== "_self") {
-				if (bonfireG.Loading) bonfireG.Loading.hide(); // 타겟이 있으면 로딩 끄기
+				if (bonfireG.Loading) bonfireG.Loading.hide();
 			} else {
-				if (bonfireG.Loading) bonfireG.Loading.show(); // 일반 이동일 때만 로딩 켜기
+				if (bonfireG.Loading) bonfireG.Loading.show();
 			}
 			
 			var form = document.createElement("form");
@@ -258,7 +584,7 @@
 	};
 
 	/**
-	 * 7. Loading: 로딩 오버레이
+	 * 8. Loading: 로딩 오버레이
 	 */
 	bonfireG.Loading = {
 		_id: "bonfire-loading-overlay",
@@ -343,7 +669,6 @@
 				}
 			}
 
-
 			if (showMessage) {
 				var self = this;
 				var idx = 0;
@@ -374,7 +699,7 @@
 	};
 	
 	/**
-	 * 8. Date: 날짜 관련 처리
+	 * 9. Date: 날짜 관련 처리
 	 */
 	bonfireG.Date = {
 		getDateTime: function(dt) {
@@ -401,7 +726,7 @@
 	};
 	
 	/**
-	 * 9. Storage: 쿠키 및 로컬스토리지 제어
+	 * 10. Storage: 쿠키 및 로컬스토리지 제어
 	 */
 	bonfireG.Storage = {
 		setCookie: function(name, value, days) {
@@ -448,7 +773,7 @@
 	};
 	
 	/**
-	 * 10. File: 파일 관련 유틸
+	 * 11. File: 파일 관련 유틸
 	 */
 	bonfireG.File = {
 		formatSize: function(bytes) {
@@ -468,7 +793,7 @@
 	};
 	
 	/**
-	 * 11. Util: 기타 유틸리티 (클립보드, 팝업)
+	 * 12. Util: 기타 유틸리티
 	 */
 	bonfireG.Util = {
 		copyToClipboard: function(text) {
@@ -494,7 +819,7 @@
 	};
 	
 	/**
-	 * 12. Form: Input 제어 및 폼 데이터 처리
+	 * 13. Form: Input 제어 및 폼 데이터 처리
 	 */
 	bonfireG.Form = {
 		onlyNumber: function(el) {
@@ -547,7 +872,7 @@
 	};
 	
 	/**
-	 * 13. Session: 세션 만료 타이머 (쿠키 시간과 동기화)
+	 * 14. Session: 세션 만료 타이머
 	 */
 	bonfireG.Session = {
 		timer: null,
@@ -569,12 +894,9 @@
 			var self = this;
 			this.watcher = setInterval(function() {
 				var check = bonfireG.Storage.getCookie(self.cookieName);
-				
 				if (check == null) {
 					clearInterval(self.watcher);
-					
 					self.showExpiredPopup();
-					
 				}
 			}, 1000); 
 
@@ -587,10 +909,8 @@
 		extend: function() {
 			bonfireG.Storage.setCookieMin(this.cookieName, this.cookieValue, this.limitMin);
 		},
-		
 		showExpiredPopup: function() {
 			var self = this;
-			
 			var overlay = document.createElement("div");
 			overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; justify-content:center; align-items:center;";
 			
@@ -621,20 +941,15 @@
 			overlay.appendChild(box);
 			document.body.appendChild(overlay);
 		},
-		
 		stop: function() {
 			if (this.watcher) {
 				clearInterval(this.watcher);
 				this.watcher = null;
 			}
 			bonfireG.Storage.deleteCookie(this.cookieName);
-			bonfireG.Core.log("Session stopped and cookie removed.");
 		},
 	};
 	
-	/**
-	 * [필수] 뒤로가기(BFCache) 시 로딩바가 화면에 남아있는 문제 해결
-	 */
 	window.addEventListener('pageshow', function(event) {
 		if (event.persisted || (bonfireG.Loading && document.getElementById("bonfire-loading-overlay") && document.getElementById("bonfire-loading-overlay").style.display === "flex")) {
 			if (bonfireG.Loading) bonfireG.Loading.hide();
